@@ -1,15 +1,23 @@
+"use client";
+
+import { useRef } from "react";
 import Link from "next/link";
+import gsap from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useGSAP } from "@gsap/react";
 import { LogoMark } from "@/components/Logo";
 import { LiveDemo } from "@/components/landing/LiveDemo";
 
-const A2UI_COMPONENTS = [
-  ["Diagram", "structure & relationships"],
-  ["StepThrough", "processes, one step at a time"],
-  ["Quiz", "check your understanding"],
-  ["Simulation", "models you can perturb"],
-  ["Chart", "quantities over time"],
-  ["FormulaStepper", "derivations, term by term"],
-] as const;
+gsap.registerPlugin(ScrollTrigger, useGSAP);
+
+const MARQUEE_ITEMS = [
+  "Diagrams",
+  "Quizzes",
+  "Simulations",
+  "Step-throughs",
+  "Charts",
+  "Formulas",
+];
 
 const HOW_IT_WORKS = [
   {
@@ -26,68 +34,215 @@ const HOW_IT_WORKS = [
   },
 ];
 
-export default function LandingPage() {
-  return (
-    <main className="landing">
-      {/* drifting cloud backdrop */}
-      <div className="clouds" aria-hidden>
-        <i className="cloud c1" />
-        <i className="cloud c2" />
-        <i className="cloud c3" />
-        <i className="cloud c4" />
-        <span className="spark s1" />
-        <span className="spark s2" />
-        <span className="spark s3" />
-      </div>
+const CATALOG = [
+  ["Diagram", "structure & relationships"],
+  ["StepThrough", "processes, one step at a time"],
+  ["Quiz", "check your understanding"],
+  ["Simulation", "models you can perturb"],
+  ["Chart", "quantities over time"],
+  ["FormulaStepper", "derivations, term by term"],
+] as const;
 
+function Words({ text, className }: { text: string; className?: string }) {
+  return (
+    <span className="line">
+      {text.split(" ").map((word, i, arr) => (
+        <span key={i} className={`word ${className ?? ""}`}>
+          {word}
+          {i < arr.length - 1 ? " " : ""}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+export default function LandingPage() {
+  const root = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      const mm = gsap.matchMedia();
+
+      mm.add("(prefers-reduced-motion: no-preference)", () => {
+        // hero: masked word reveal
+        gsap.from(".lv2-hero-title .word", {
+          yPercent: 115,
+          duration: 1,
+          ease: "power4.out",
+          stagger: 0.055,
+          delay: 0.15,
+        });
+        gsap.from(".lv2-kicker, .lv2-hero-sub, .lv2-cta", {
+          y: 26,
+          autoAlpha: 0,
+          duration: 0.8,
+          ease: "power3.out",
+          stagger: 0.1,
+          delay: 0.5,
+        });
+
+        // rotating badge
+        gsap.to(".lv2-badge-ring", {
+          rotation: 360,
+          duration: 16,
+          ease: "none",
+          repeat: -1,
+          transformOrigin: "50% 50%",
+        });
+
+        // marquee: seamless loop (track holds two identical halves)
+        gsap.to(".lv2-marquee-track", {
+          xPercent: -50,
+          duration: 20,
+          ease: "none",
+          repeat: -1,
+        });
+
+        // scroll-triggered section reveals
+        gsap.utils.toArray<HTMLElement>(".lv2-reveal").forEach((el) => {
+          gsap.from(el, {
+            y: 48,
+            autoAlpha: 0,
+            duration: 0.85,
+            ease: "power3.out",
+            scrollTrigger: { trigger: el, start: "top 86%" },
+          });
+        });
+
+        // staggered card entrances
+        gsap.from(".lv2-step", {
+          y: 60,
+          autoAlpha: 0,
+          rotate: 0,
+          duration: 0.8,
+          ease: "back.out(1.4)",
+          stagger: 0.12,
+          scrollTrigger: { trigger: ".lv2-steps", start: "top 82%" },
+        });
+        gsap.from(".lv2-catalog-pill", {
+          y: 34,
+          autoAlpha: 0,
+          duration: 0.55,
+          ease: "back.out(1.7)",
+          stagger: 0.07,
+          scrollTrigger: { trigger: ".lv2-catalog", start: "top 86%" },
+        });
+
+        // footer wordmark slides up
+        gsap.from(".lv2-footer-word", {
+          yPercent: 40,
+          autoAlpha: 0,
+          duration: 0.9,
+          ease: "power3.out",
+          scrollTrigger: { trigger: ".lv2-footer", start: "top 88%" },
+        });
+      });
+    },
+    { scope: root },
+  );
+
+  return (
+    <main className="lv2" ref={root}>
       {/* hero */}
-      <section className="landing-hero">
-        <div className="landing-mark float">
-          <LogoMark size={84} />
-        </div>
-        <h1 className="landing-title">
-          Answers you can <em>touch</em>,<br />
-          not walls of text.
+      <section className="lv2-hero lv2-wrap">
+        <span className="lv2-kicker">
+          <i />
+          OKX AI agent — generative learning UI
+        </span>
+
+        <h1 className="lv2-hero-title">
+          <Words text="Answers you" />
+          <span className="line">
+            <span className="word accent">can touch,</span>
+          </span>
+          <span className="line">
+            <span className="word">not </span>
+            <span className="word outline">walls</span>
+            <span className="word"> of text.</span>
+          </span>
         </h1>
-        <p className="landing-sub">
-          gloomy turns any question into one interactive component — a
-          diagram, a step-through, a quiz, a live simulation — generated on
-          the fly, grounded by a schema the model can&apos;t break.
-        </p>
-        <div className="landing-cta">
-          <Link href="/chat" className="a2ui-button primary big">
-            Try gloomy
-          </Link>
-          <Link href="/gallery" className="a2ui-button big">
-            Browse components
-          </Link>
+
+        <div className="lv2-hero-row">
+          <div>
+            <p className="lv2-hero-sub">
+              gloomy turns any question into one interactive component — a
+              diagram, a step-through, a quiz, a live simulation — generated
+              on the fly, grounded by a schema the model can&apos;t break.
+            </p>
+            <div className="lv2-cta">
+              <Link href="/chat" className="lv2-btn coral">
+                Try gloomy →
+              </Link>
+              <Link href="/gallery" className="lv2-btn">
+                Browse components
+              </Link>
+            </div>
+          </div>
+
+          <div className="lv2-badge" aria-hidden>
+            <svg viewBox="0 0 128 128" className="lv2-badge-ring">
+              <defs>
+                <path
+                  id="lv2-badge-circle"
+                  d="M 64,64 m -50,0 a 50,50 0 1,1 100,0 a 50,50 0 1,1 -100,0"
+                />
+              </defs>
+              <text>
+                <textPath href="#lv2-badge-circle">
+                  okx ai agent ✦ generative ui ✦ ask · see · understand ✦
+                </textPath>
+              </text>
+            </svg>
+            <span className="lv2-badge-cloud">
+              <LogoMark size={36} variant="ink" />
+            </span>
+          </div>
         </div>
       </section>
 
-      {/* the interactive bit: this section of the page IS the product */}
-      <section className="landing-section">
-        <p className="hero-eyebrow">Don&apos;t read about it — click it</p>
-        <h2 className="landing-h2">
-          This part of the page is <em>generative</em>
+      {/* marquee ribbon */}
+      <div className="lv2-marquee" aria-hidden>
+        <div className="lv2-marquee-track">
+          {[0, 1].map((half) => (
+            <span key={half}>
+              {MARQUEE_ITEMS.map((item) => (
+                <span key={item}>{item} ✦</span>
+              ))}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* live generative section */}
+      <section className="lv2-section lv2-wrap">
+        <p className="lv2-eyebrow lv2-reveal">Don&apos;t read about it — click it</p>
+        <h2 className="lv2-h2 lv2-reveal">
+          This part of the page
+          <br />
+          is <span className="accent">generative</span>
         </h2>
-        <p className="landing-section-sub">
-          Pick a prompt below. Watch it type, then watch this very section
-          reshape itself into a different component — that&apos;s the whole
-          product, running on the real catalog.
+        <p className="lv2-section-sub lv2-reveal">
+          Pick a prompt. Watch it type, then watch this very section reshape
+          itself into a different component — that&apos;s the whole product,
+          running on the real catalog.
         </p>
-        <LiveDemo />
+        <div className="lv2-reveal">
+          <LiveDemo variant="lv2" />
+        </div>
       </section>
 
       {/* how it works */}
-      <section className="landing-section">
-        <p className="hero-eyebrow">How it works</p>
-        <h2 className="landing-h2">
-          Three steps, <em>zero reading lists</em>
+      <section className="lv2-section lv2-wrap">
+        <p className="lv2-eyebrow lv2-reveal">How it works</p>
+        <h2 className="lv2-h2 lv2-reveal">
+          Three steps,
+          <br />
+          <span className="accent">zero reading lists</span>
         </h2>
-        <div className="landing-steps">
+        <div className="lv2-steps">
           {HOW_IT_WORKS.map((step, i) => (
-            <div className="landing-step" key={step.title}>
-              <span className="landing-step-num">{i + 1}</span>
+            <div className="lv2-step" key={step.title}>
+              <span className="lv2-step-num">{i + 1}</span>
               <h3>{step.title}</h3>
               <p>{step.body}</p>
             </div>
@@ -95,30 +250,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* catalog strip */}
-      <section className="landing-section">
-        <p className="hero-eyebrow">The catalog</p>
-        <h2 className="landing-h2">
-          Six components. <em>Infinite lessons.</em>
+      {/* catalog */}
+      <section className="lv2-section lv2-wrap">
+        <p className="lv2-eyebrow lv2-reveal">The catalog</p>
+        <h2 className="lv2-h2 lv2-reveal">
+          Six components.
+          <br />
+          <span className="accent">Infinite lessons.</span>
         </h2>
-        <div className="landing-catalog">
-          {A2UI_COMPONENTS.map(([name, blurb]) => (
-            <div className="landing-catalog-card" key={name}>
-              <code>{name}</code>
+        <div className="lv2-catalog">
+          {CATALOG.map(([name, blurb]) => (
+            <div className="lv2-catalog-pill" key={name}>
+              <strong>{name}</strong>
               <span>{blurb}</span>
             </div>
           ))}
         </div>
       </section>
 
-      {/* using it via okx.ai */}
-      <section className="landing-section">
-        <p className="hero-eyebrow">How to use it</p>
-        <h2 className="landing-h2">
-          On <em>OKX AI</em>, or on your own machine
+      {/* usage */}
+      <section className="lv2-section lv2-wrap">
+        <p className="lv2-eyebrow lv2-reveal">How to use it</p>
+        <h2 className="lv2-h2 lv2-reveal">
+          On <span className="accent">OKX AI</span>, or
+          <br />
+          on your own machine
         </h2>
-        <div className="landing-usage">
-          <div className="landing-usage-card">
+        <div className="lv2-usage">
+          <div className="lv2-usage-card dark lv2-reveal">
             <h3>From the OKX AI marketplace</h3>
             <ol>
               <li>
@@ -135,7 +294,7 @@ export default function LandingPage() {
               </li>
             </ol>
           </div>
-          <div className="landing-usage-card">
+          <div className="lv2-usage-card lv2-reveal">
             <h3>Run it yourself</h3>
             <ol>
               <li>
@@ -155,13 +314,21 @@ export default function LandingPage() {
         </div>
       </section>
 
-      <footer className="landing-footer">
-        <LogoMark size={22} />
-        <span>gloomy — built for the OKX AI Genesis Hackathon</span>
-        <nav>
-          <Link href="/chat">Chat</Link>
-          <Link href="/gallery">Gallery</Link>
-        </nav>
+      {/* footer */}
+      <footer className="lv2-footer">
+        <div className="lv2-wrap">
+          <p className="lv2-footer-word">
+            glo<em>o</em>my
+          </p>
+          <div className="lv2-footer-row">
+            <LogoMark size={22} variant="ink" />
+            <span>Built for the OKX AI Genesis Hackathon</span>
+            <nav>
+              <Link href="/chat">Chat</Link>
+              <Link href="/gallery">Gallery</Link>
+            </nav>
+          </div>
+        </div>
       </footer>
     </main>
   );

@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import gsap from "gsap";
+import { useGSAP } from "@gsap/react";
 import { Chart } from "@/components/a2ui/Chart";
 import { Diagram } from "@/components/a2ui/Diagram";
 import { Quiz } from "@/components/a2ui/Quiz";
@@ -13,6 +15,8 @@ import {
   sampleSimulation,
   sampleStepThrough,
 } from "@/fixtures/sample-a2ui";
+
+gsap.registerPlugin(useGSAP);
 
 interface DemoState {
   key: string;
@@ -54,17 +58,49 @@ const DEMO_STATES: DemoState[] = [
   },
 ];
 
-export function LiveDemo() {
+export function LiveDemo({ variant }: { variant?: "lv2" }) {
   const [active, setActive] = useState(0);
   const [typed, setTyped] = useState(DEMO_STATES[0].prompt);
   const [phase, setPhase] = useState<"idle" | "typing">("idle");
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   useEffect(
     () => () => {
       if (timerRef.current) clearInterval(timerRef.current);
     },
     [],
+  );
+
+  // GSAP morph: runs on mount and every time the stage swaps components
+  useGSAP(
+    () => {
+      const prefersReduced = window.matchMedia(
+        "(prefers-reduced-motion: reduce)",
+      ).matches;
+      if (prefersReduced || !stageRef.current) return;
+      gsap.fromTo(
+        stageRef.current.firstElementChild,
+        {
+          y: 30,
+          autoAlpha: 0,
+          rotateX: 9,
+          scale: 0.96,
+          filter: "blur(5px)",
+          transformOrigin: "50% 20%",
+        },
+        {
+          y: 0,
+          autoAlpha: 1,
+          rotateX: 0,
+          scale: 1,
+          filter: "blur(0px)",
+          duration: 0.65,
+          ease: "power3.out",
+        },
+      );
+    },
+    { dependencies: [active], scope: stageRef },
   );
 
   function choose(index: number) {
@@ -92,7 +128,7 @@ export function LiveDemo() {
   const current = DEMO_STATES[active];
 
   return (
-    <div className="demo-frame">
+    <div className={variant === "lv2" ? "lv2-demo" : "demo-frame"}>
       <div className="demo-chrome" aria-hidden>
         <i />
         <i />
@@ -110,8 +146,8 @@ export function LiveDemo() {
         </span>
       </div>
 
-      <div className="demo-stage" key={current.key}>
-        {current.node}
+      <div className="demo-stage" ref={stageRef}>
+        <div key={current.key}>{current.node}</div>
       </div>
 
       <div className="demo-chips" role="group" aria-label="Try a different component">

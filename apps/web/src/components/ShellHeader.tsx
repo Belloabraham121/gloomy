@@ -8,14 +8,15 @@ const WEB3D_URL = process.env.NEXT_PUBLIC_WEB3D_URL ?? "http://localhost:3002";
 
 export function ShellHeader() {
   const pathname = usePathname();
+  const onLanding = pathname === "/";
 
   return (
     <header className="shell-header">
       <Link href="/" className="shell-wordmark">
-        <Logo size={26} />
+        <Logo size={26} variant={onLanding ? "ink" : "violet"} />
       </Link>
       <nav className="shell-nav" aria-label="Primary">
-        <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>
+        <Link href="/" aria-current={onLanding ? "page" : undefined}>
           Home
         </Link>
         <Link
