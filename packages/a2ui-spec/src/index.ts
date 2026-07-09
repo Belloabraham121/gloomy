@@ -1,17 +1,17 @@
 import type { z } from "zod/v4";
-import { chartSchema } from "./chart";
-import { diagramSchema } from "./diagram";
-import { formulaStepperSchema } from "./formula-stepper";
-import { quizSchema } from "./quiz";
-import { simulationSchema } from "./simulation";
-import { stepThroughSchema } from "./step-through";
+import { chartSchema } from "./chart.js";
+import { diagramSchema } from "./diagram.js";
+import { formulaStepperSchema } from "./formula-stepper.js";
+import { quizSchema } from "./quiz.js";
+import { simulationSchema } from "./simulation.js";
+import { stepThroughSchema } from "./step-through.js";
 
-export * from "./chart";
-export * from "./diagram";
-export * from "./formula-stepper";
-export * from "./quiz";
-export * from "./simulation";
-export * from "./step-through";
+export * from "./chart.js";
+export * from "./diagram.js";
+export * from "./formula-stepper.js";
+export * from "./quiz.js";
+export * from "./simulation.js";
+export * from "./step-through.js";
 
 export const a2uiRegistry = {
   Diagram: {

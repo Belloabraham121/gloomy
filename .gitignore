@@ -9,6 +9,7 @@ out/
 dist/
 build/
 *.tsbuildinfo
+node-compile-cache/
 
 # Env
 .env
