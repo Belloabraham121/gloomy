@@ -1,11 +1,11 @@
 import { Router } from "express";
 import { getCachedResponse, setCachedResponse } from "../cache/cache.js";
-import { getClaudeClient, MissingApiKeyError } from "../claude/client.js";
 import {
-  runToolUseTurn,
+  getLlmProvider,
+  MissingApiKeyError,
   ToolUseError,
   type ChatMessage,
-} from "../claude/run-tool-use.js";
+} from "../llm/index.js";
 import { recordProgress } from "../progress/progress.js";
 
 export const chatRouter = Router();
@@ -34,13 +34,18 @@ chatRouter.post("/", async (req, res) => {
       question,
       component: cached.component,
     });
-    res.json({ threadId, sessionId: sessionId ?? undefined, cached: true, ...cached });
+    res.json({
+      threadId,
+      sessionId: sessionId ?? undefined,
+      cached: true,
+      ...cached,
+    });
     return;
   }
 
-  let client;
+  let provider;
   try {
-    client = getClaudeClient();
+    provider = getLlmProvider();
   } catch (err) {
     if (err instanceof MissingApiKeyError) {
       res.status(501).json({ error: err.message });
@@ -50,14 +55,20 @@ chatRouter.post("/", async (req, res) => {
   }
 
   try {
-    const payload = await runToolUseTurn(client, messages);
+    const payload = await provider.runToolUseTurn(messages);
     await setCachedResponse(question, payload);
     const sessionId = await recordProgress({
       sessionId: body.sessionId,
       question,
       component: payload.component,
     });
-    res.json({ threadId, sessionId: sessionId ?? undefined, cached: false, ...payload });
+    res.json({
+      threadId,
+      sessionId: sessionId ?? undefined,
+      cached: false,
+      provider: provider.name,
+      ...payload,
+    });
   } catch (err) {
     if (err instanceof ToolUseError) {
       res.status(502).json({ error: err.message });

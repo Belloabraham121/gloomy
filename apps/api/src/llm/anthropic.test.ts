@@ -1,10 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  runToolUseTurn,
-  ToolUseError,
-  type MessagesClient,
-} from "./run-tool-use.js";
+  runAnthropicToolUseTurn,
+  type AnthropicMessagesClient,
+} from "./anthropic.js";
+import { ToolUseError } from "./shared.js";
+import { validQuizInput } from "./test-fixtures.js";
 
 function toolUseMessage(name: string, input: unknown): Anthropic.Message {
   return {
@@ -39,25 +40,15 @@ function textOnlyMessage(): Anthropic.Message {
   } as unknown as Anthropic.Message;
 }
 
-const validQuizInput = {
-  question: "What is 2 + 2?",
-  choices: [
-    { id: "a", label: "3" },
-    { id: "b", label: "4" },
-  ],
-  correctChoiceId: "b",
-  explanation: "2 + 2 = 4.",
-};
-
-describe("runToolUseTurn", () => {
+describe("runAnthropicToolUseTurn", () => {
   it("returns the validated component and props on a well-formed first response", async () => {
-    const client: MessagesClient = {
+    const client: AnthropicMessagesClient = {
       messages: {
         create: async () => toolUseMessage("Quiz", validQuizInput),
       },
     };
 
-    const result = await runToolUseTurn(client, [
+    const result = await runAnthropicToolUseTurn(client, [
       { role: "user", content: "Quiz me on basic arithmetic" },
     ]);
 
@@ -66,25 +57,24 @@ describe("runToolUseTurn", () => {
   });
 
   it("rejects a tool call naming a component outside the catalog", async () => {
-    const client: MessagesClient = {
+    const client: AnthropicMessagesClient = {
       messages: {
         create: async () => toolUseMessage("NotARealComponent", {}),
       },
     };
 
     await expect(
-      runToolUseTurn(client, [{ role: "user", content: "hi" }]),
+      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
     ).rejects.toThrow(ToolUseError);
   });
 
   it("retries once when the first response fails schema validation, and succeeds if the retry is valid", async () => {
     let callCount = 0;
-    const client: MessagesClient = {
+    const client: AnthropicMessagesClient = {
       messages: {
         create: async () => {
           callCount++;
           if (callCount === 1) {
-            // Missing required "correctChoiceId" and "explanation".
             return toolUseMessage("Quiz", {
               question: "What is 2 + 2?",
               choices: [{ id: "a", label: "4" }],
@@ -95,7 +85,7 @@ describe("runToolUseTurn", () => {
       },
     };
 
-    const result = await runToolUseTurn(client, [
+    const result = await runAnthropicToolUseTurn(client, [
       { role: "user", content: "Quiz me on basic arithmetic" },
     ]);
 
@@ -105,27 +95,26 @@ describe("runToolUseTurn", () => {
   });
 
   it("throws if the retry also fails validation", async () => {
-    const client: MessagesClient = {
+    const client: AnthropicMessagesClient = {
       messages: {
-        create: async () =>
-          toolUseMessage("Quiz", { question: "incomplete" }),
+        create: async () => toolUseMessage("Quiz", { question: "incomplete" }),
       },
     };
 
     await expect(
-      runToolUseTurn(client, [{ role: "user", content: "hi" }]),
+      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
     ).rejects.toThrow(ToolUseError);
   });
 
   it("throws a ToolUseError if Claude responds with text instead of a tool call", async () => {
-    const client: MessagesClient = {
+    const client: AnthropicMessagesClient = {
       messages: {
         create: async () => textOnlyMessage(),
       },
     };
 
     await expect(
-      runToolUseTurn(client, [{ role: "user", content: "hi" }]),
+      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
     ).rejects.toThrow(ToolUseError);
   });
 });
