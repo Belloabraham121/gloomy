@@ -35,3 +35,236 @@ code {
 .status.error {
   border-color: #c0392b;
 }
+
+/* A2UI component gallery */
+
+main.a2ui-gallery {
+  max-width: 1100px;
+}
+
+.a2ui-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+}
+
+/* Diagrams and charts tend to be wider than a single grid column can hold
+   without squeezing text; give them the room a card-grid layout can spare. */
+.a2ui-gallery-grid > .a2ui-card:has(.a2ui-diagram-scroll) {
+  grid-column: span 2;
+}
+
+.a2ui-card {
+  background: #131318;
+  border: 1px solid #2a2a35;
+  border-radius: 12px;
+  padding: 1.25rem;
+  min-width: 0;
+}
+
+.a2ui-title {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.a2ui-diagram-scroll {
+  overflow-x: auto;
+}
+
+.a2ui-button {
+  background: #1a1a22;
+  color: #e8e8ee;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.a2ui-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.a2ui-button.primary {
+  background: #2b5fd9;
+  border-color: #2b5fd9;
+}
+
+/* StepThrough */
+
+.a2ui-step-progress {
+  margin: 0 0 0.75rem;
+  font-size: 0.8rem;
+  color: #9aa3b2;
+}
+
+.a2ui-step-body h4 {
+  margin: 0 0 0.4rem;
+}
+
+.a2ui-step-body p {
+  margin: 0 0 0.75rem;
+  line-height: 1.5;
+}
+
+.a2ui-step-highlight {
+  background: #2a2410;
+  border: 1px solid #6b5a1e;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.a2ui-step-nav {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Quiz */
+
+.a2ui-quiz-choices {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.a2ui-quiz-choice {
+  text-align: left;
+  background: #1a1a22;
+  color: #e8e8ee;
+  border: 1px solid #3a3a48;
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.a2ui-quiz-choice:disabled {
+  cursor: default;
+}
+
+.a2ui-quiz-choice.correct {
+  border-color: #2f9e5c;
+  background: #10241a;
+}
+
+.a2ui-quiz-choice.incorrect {
+  border-color: #c0392b;
+  background: #2a1414;
+}
+
+.a2ui-quiz-feedback {
+  border-radius: 6px;
+  padding: 0.6rem 0.9rem;
+  font-size: 0.9rem;
+  border: 1px solid;
+}
+
+.a2ui-quiz-feedback.correct {
+  border-color: #2f9e5c;
+  background: #10241a;
+}
+
+.a2ui-quiz-feedback.incorrect {
+  border-color: #c0392b;
+  background: #2a1414;
+}
+
+/* Simulation */
+
+.a2ui-simulation-description {
+  margin: 0 0 1rem;
+  color: #c6ceda;
+  font-size: 0.9rem;
+}
+
+.a2ui-simulation-slider {
+  display: block;
+  margin-bottom: 1rem;
+  font-size: 0.85rem;
+}
+
+.a2ui-simulation-slider span {
+  display: block;
+  margin-bottom: 0.35rem;
+}
+
+.a2ui-simulation-slider input[type="range"] {
+  width: 100%;
+}
+
+.a2ui-simulation-result {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  border-top: 1px solid #2a2a35;
+  padding-top: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.a2ui-simulation-value {
+  font-weight: 600;
+}
+
+.a2ui-simulation-error {
+  color: #e07070;
+  font-size: 0.85rem;
+}
+
+/* Chart */
+
+.a2ui-chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  color: #9aa3b2;
+}
+
+.a2ui-chart-axis-label {
+  margin-right: 0.5rem;
+}
+
+.a2ui-chart-legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.a2ui-chart-legend-item i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+/* FormulaStepper */
+
+.a2ui-formula-term {
+  margin-bottom: 0.75rem;
+}
+
+.a2ui-formula-term code {
+  display: inline-block;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+.a2ui-formula-term p {
+  margin: 0;
+  color: #c6ceda;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 500px) {
+  .a2ui-gallery-grid {
+    grid-template-columns: 1fr;
+  }
+}

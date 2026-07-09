@@ -82,7 +82,7 @@ FormulaStepper.
 ## Build order
 
 - [x] 1. Scaffold `apps/web` (OpenUI) + `apps/api` (backend) skeleton, confirm they talk to each other.
-- [ ] 2. Build the 3 A2UI components (Diagram, StepThrough, Quiz) with hardcoded data — no LLM yet. Confirm rendering works well on web and iPad Safari (via simulator).
+- [x] 2. Build the 3 A2UI components (Diagram, StepThrough, Quiz) with hardcoded data — no LLM yet. Confirm rendering works well on web and iPad Safari (via simulator).
 - [ ] 3. Wire Claude tool-use to populate those 3 components dynamically for a small hardcoded set of ~10 questions.
 - [ ] 4. Add RAG grounding so content generation pulls from real sources instead of the model's raw knowledge.
 - [ ] 5. Expand the component catalog (Simulation, Chart, FormulaStepper) once the core loop is validated.
