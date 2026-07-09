@@ -1,0 +1,37 @@
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, sans-serif;
+  background: #0b0b0f;
+  color: #e8e8ee;
+}
+
+main {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem;
+}
+
+code {
+  background: #1a1a22;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
+
+.status {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border-radius: 8px;
+  border: 1px solid #2a2a35;
+}
+
+.status.ok {
+  border-color: #2f9e5c;
+}
+
+.status.error {
+  border-color: #c0392b;
+}

@@ -1,35 +1,48 @@
 # apps/api
 
-Backend: Node.js + TypeScript. Owns the Claude tool-use loop, the RAG
-retriever, caching, and progress tracking. Shared by both `apps/web` and
+Backend: Node.js + TypeScript + Express. Owns the Claude tool-use loop, the
+RAG retriever, caching, and progress tracking. Shared by both `apps/web` and
 `apps/web-3d`.
 
-**Not scaffolded yet.** This is build order step 1. Planned layout once
-scaffolded:
+## Current state (build order step 1)
+
+Minimal skeleton, no Claude/RAG yet:
+
+- `GET /health` — liveness check.
+- `POST /api/chat` — stub. Accepts `{ threadId, messages }`, echoes the last
+  user message back as `{ threadId, reply }`. Proves `apps/web` and
+  `apps/api` can talk to each other; not real chat logic yet.
+
+## Run it
+
+```bash
+pnpm install   # from repo root or here
+pnpm dev       # starts on http://localhost:4000
+```
+
+## Planned layout (not all built yet)
 
 ```
 apps/api/
 ├── src/
 │   ├── index.ts
 │   ├── routes/
-│   │   ├── chat.ts        # streaming chat endpoint, Claude tool-use loop
+│   │   ├── chat.ts        # done (stub) — becomes the real Claude tool-use loop in step 3
 │   │   └── progress.ts    # step 6
-│   ├── claude/
+│   ├── claude/              # step 3
 │   │   ├── client.ts
 │   │   ├── systemPrompt.ts
-│   │   └── tools/         # one tool per A2UI component, built from packages/a2ui-spec
-│   ├── rag/                # step 4
+│   │   └── tools/           # one tool per A2UI component, built from packages/a2ui-spec
+│   ├── rag/                 # step 4
 │   │   ├── ingest.ts
 │   │   ├── retriever.ts
 │   │   └── sources/
-│   └── cache/               # step 6
+│   └── cache/                # step 6
 ├── test/
 ├── package.json
 └── tsconfig.json
 ```
 
-Step 1 scope is intentionally narrow: a `/api/chat` route that Claude
-tool-use can respond on with hardcoded/stubbed component data, enough to
-prove `apps/web` and `apps/api` can talk to each other end-to-end. RAG,
-caching, and progress tracking are explicitly out of scope until steps 4
-and 6.
+Next up: build order step 2 happens entirely in `apps/web` (hardcoded A2UI
+components, no backend changes needed). Step 3 is where `/api/chat` here
+becomes a real Claude tool-use loop.
