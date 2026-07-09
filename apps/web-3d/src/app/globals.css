@@ -1,0 +1,342 @@
+/* Shared gloomy design tokens — kept in sync with apps/web/src/app/globals.css.
+   If this drifts, extract into a shared package; two copies is acceptable at
+   two consumers, not three. */
+
+:root {
+  --bg: #0b0b10;
+  --surface: #14141b;
+  --surface-2: #1b1b24;
+  --surface-3: #22222d;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --text: #ececf1;
+  --text-dim: #a2a2b0;
+  --text-faint: #70707e;
+
+  --accent: #8b7cff;
+  --accent-strong: #6c5ce7;
+  --accent-soft: rgba(139, 124, 255, 0.14);
+  --accent-gradient: linear-gradient(135deg, #6c5ce7 0%, #9d8bff 100%);
+
+  --warn-soft: rgba(240, 185, 92, 0.1);
+
+  --radius: 14px;
+  --radius-sm: 9px;
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    "Helvetica Neue", Arial, sans-serif;
+  --font-mono:
+    ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.28);
+
+  /* CopilotKit theme bridge */
+  --copilot-kit-primary-color: #6c5ce7;
+  --copilot-kit-contrast-color: #ffffff;
+  --copilot-kit-background-color: #14141b;
+  --copilot-kit-secondary-color: #1b1b24;
+  --copilot-kit-secondary-contrast-color: #ececf1;
+  --copilot-kit-separator-color: rgba(255, 255, 255, 0.08);
+  --copilot-kit-muted-color: #70707e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background:
+    radial-gradient(60rem 32rem at 50% -12rem, rgba(108, 92, 231, 0.14), transparent 65%),
+    var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(139, 124, 255, 0.35);
+}
+
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+h1,
+h2,
+h3 {
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  padding: 0.12rem 0.4rem;
+  border-radius: 6px;
+}
+
+/* Shell header (same look as apps/web) */
+
+.shell-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.85rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(11, 11, 16, 0.75);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
+
+.shell-wordmark {
+  font-weight: 750;
+  font-size: 1.05rem;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.shell-wordmark i {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--accent-gradient);
+  box-shadow: 0 0 12px rgba(139, 124, 255, 0.8);
+}
+
+.shell-nav {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.shell-nav a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.875rem;
+  padding: 0.4rem 0.8rem;
+  border-radius: 999px;
+  transition: color 120ms ease, background 120ms ease;
+}
+
+.shell-nav a:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.shell-nav a[aria-current="page"] {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+/* Hero (same treatment as apps/web) */
+
+.hero-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin: 0 0 0.9rem;
+}
+
+.hero-eyebrow::before {
+  content: "";
+  width: 1.4rem;
+  height: 1px;
+  background: var(--accent);
+  opacity: 0.6;
+}
+
+h1.hero-title {
+  margin: 0 0 0.6rem;
+  font-size: clamp(2rem, 5vw, 2.6rem);
+  font-weight: 750;
+}
+
+.hero-title em {
+  font-style: normal;
+  background: var(--accent-gradient);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.hero-sub {
+  margin: 0 0 1.6rem;
+  color: var(--text-dim);
+  font-size: 1.02rem;
+  max-width: 36rem;
+}
+
+/* Lab layout */
+
+.lab-main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 3rem 1.5rem 5rem;
+}
+
+.lab-banner {
+  background: var(--warn-soft);
+  border: 1px solid rgba(240, 185, 92, 0.3);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.95rem;
+  font-size: 0.88rem;
+  color: #ffd89a;
+  margin-bottom: 1.2rem;
+}
+
+.lab-canvas-card {
+  height: 460px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), transparent 40%),
+    var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  cursor: grab;
+}
+
+.lab-canvas-card:active {
+  cursor: grabbing;
+}
+
+.lab-controls {
+  margin-top: 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 1.1rem 1.2rem;
+  box-shadow: var(--shadow-card);
+}
+
+.lab-control-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.1rem;
+}
+
+.lab-chip {
+  background: var(--surface-2);
+  color: var(--text-dim);
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  padding: 0.45rem 1rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 120ms ease;
+}
+
+.lab-chip:hover {
+  color: var(--text);
+  background: var(--surface-3);
+}
+
+.lab-chip.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.lab-slider {
+  display: block;
+  margin-bottom: 0.95rem;
+  font-size: 0.87rem;
+  color: var(--text-dim);
+}
+
+.lab-slider:last-child {
+  margin-bottom: 0;
+}
+
+.lab-slider span {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 0.45rem;
+}
+
+.lab-slider strong {
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
+.lab-slider input[type="range"] {
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  cursor: pointer;
+}
+
+.lab-slider input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent-gradient);
+  border: 2px solid #fff2;
+  box-shadow: 0 0 10px rgba(139, 124, 255, 0.55);
+}
+
+.lab-slider input[type="range"]::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  box-shadow: 0 0 10px rgba(139, 124, 255, 0.55);
+}
+
+/* Card rendered inside the copilot chat when the scene is reconfigured */
+
+.lab-action-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: var(--surface-2);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0.7rem 0.9rem;
+  margin: 0.3rem 0;
+}
+
+.lab-action-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.lab-action-meta {
+  font-size: 0.8rem;
+  color: var(--text-faint);
+}
