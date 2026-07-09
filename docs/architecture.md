@@ -6,15 +6,19 @@
 2. `apps/web` `POST`s `{ threadId, sessionId?, messages }` to `apps/api`'s
    `/api/chat`.
 3. `apps/api` checks the cache (Postgres, keyed on a hash of the question).
-   A hit returns immediately — Claude is never called, and
-   `ANTHROPIC_API_KEY` doesn't even need to be set.
-4. On a miss, `apps/api` runs a Claude tool-use turn. The available tools
-   are generated from `packages/a2ui-spec` — one tool per A2UI component
-   (`Diagram`, `StepThrough`, `Quiz`, `Simulation`, `Chart`,
-   `FormulaStepper`). Claude picks one and fills its arguments.
-5. Whatever Claude returns is validated against that same Zod schema (never
-   trusted as-is). If invalid, one retry with the validation error fed back
-   as a `tool_result`.
+   A hit returns immediately — no LLM is called, and no API key needs to
+   be set.
+4. On a miss, `apps/api` picks a provider (`src/llm/index.ts`:
+   `LLM_PROVIDER=anthropic|openai` forces one; otherwise Anthropic is
+   preferred when both keys are present) and runs a tool-use turn. The
+   available tools are generated from `packages/a2ui-spec` — one tool per
+   A2UI component (`Diagram`, `StepThrough`, `Quiz`, `Simulation`,
+   `Chart`, `FormulaStepper`). The model picks one and fills its arguments.
+5. Whatever the model returns — from either provider — is validated against
+   that same Zod schema (never trusted as-is). If invalid, one retry with
+   the validation error fed back (`tool_result` for Claude, a `tool` role
+   message for OpenAI, whose string-encoded arguments also get a
+   JSON.parse guard).
 6. (Build order step 4, not started) Before/during the tool-use turn,
    `apps/api` would retrieve grounding context from the RAG layer and
    inject it into the prompt, so components are populated from real
@@ -26,22 +30,37 @@
    component from `a2uiComponents` (in `lib/a2ui-library.ts`) and renders
    `props` directly.
 
-## Request flow (3D / CopilotKit path)
+## Request flow (3D / CopilotKit path) — as actually built
 
-Not built yet (deferred to step 5+ territory — see `apps/web-3d/README.md`).
-Same steps 1–6 above, but the request would route to `apps/web-3d` and
-render via CopilotKit's generative UI instead of `A2uiRenderer`. `apps/api`
-is meant to be shared — it doesn't know or care which frontend asked, only
-which tools/components are valid for the request.
+`apps/web-3d` is its own surface with its own chat transport:
+
+1. The page holds one `SceneConfig` state (preset / hue / speed / density)
+   that drives a live react-three-fiber scene — three presets: an
+   instanced wave field, orbiting bodies, a parametric torus knot.
+2. CopilotKit's sidebar chat talks to `/api/copilotkit` (CopilotKit
+   runtime inside `apps/web-3d` itself, not `apps/api`), with the same
+   Anthropic/OpenAI provider-selection convention.
+3. The model changes the scene through a `useCopilotAction`
+   (`configure_scene`) and can see the current state via
+   `useCopilotReadable`. Everything it sends passes through
+   `sanitizeSceneConfig` before touching the scene — the same
+   never-trust-model-output philosophy as `apps/api`'s Zod gate, just
+   with clamping instead of rejection since a 3D scene has safe bounds.
+4. A manual control panel drives the identical state, so the whole 3D
+   surface works with zero API keys.
+
+Note the asymmetry: the 2D path centralizes LLM calls in `apps/api`
+(cache + progress + one validation gate), while the 3D lab uses
+CopilotKit's own runtime because that's what its generative-UI hooks are
+built around. If the 3D lab later needs caching/progress, route its
+runtime through `apps/api` instead.
 
 ## Why two frontends instead of one
 
 OpenUI's component contract (Zod props → deterministic React render) is a
 good fit for structured, mostly-2D teaching content but isn't built for
 free-form 3D/simulated scenes. Rather than stretch one framework to cover
-both, 3D-shaped answers would get routed to a CopilotKit surface instead.
-The backend, tool definitions, cache, and progress tracking are shared
-between both — only the rendering surface would differ.
+both, 3D-shaped answers get routed to the CopilotKit surface instead.
 
 ## Anthropic ↔ OpenUI transport gap — resolved by not using it (yet)
 

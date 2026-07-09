@@ -11,9 +11,9 @@ of chat text, grounded in real sources instead of the model's raw memory.
 | Layer | Choice | Why |
 |---|---|---|
 | 2D generative UI | [OpenUI](https://www.openui.com/) (`@openuidev/react-lang`, `@openuidev/react-ui`) on Next.js | Zod-typed component contracts so the LLM can only ever ask for UI we've defined. |
-| 3D / simulation generative UI | Copilot generative UI ([CopilotKit](https://www.copilotkit.ai/)) | Not started — reserved for cases OpenUI's 2D catalog genuinely can't cover. |
-| Backend | Node.js + TypeScript + Express | One language across backend and both frontends; strong Anthropic TS SDK support. |
-| Model | Claude (Anthropic), tool-use | Backend defines one tool per A2UI component; Claude picks a component and fills its props; the response is validated against the same Zod schema before it's trusted. |
+| 3D / simulation generative UI | Copilot generative UI ([CopilotKit](https://www.copilotkit.ai/)) + react-three-fiber | `apps/web-3d`: the copilot reconfigures a live WebGL scene from natural language; a manual panel drives the same state so it works with no API keys. |
+| Backend | Node.js + TypeScript + Express | One language across backend and both frontends. |
+| Models | Claude (Anthropic) **and** OpenAI, tool-use / function calling | One handler per provider behind a single interface (`apps/api/src/llm/`); `LLM_PROVIDER` env picks, Anthropic preferred when both keys are set. Either way the response is validated against the same Zod schema before it's trusted. |
 | Database | Postgres + pgvector, via Drizzle | Cache + progress tracking today; the same database will hold RAG source embeddings once step 4 starts. One database instead of three separate services (vector DB + cache store + relational DB) — see `docs/architecture.md`. |
 | Grounding | RAG over a real source corpus | Not started (build order step 4) — needs an actual source corpus, which is a curation task, not just code. |
 | Package management | pnpm workspaces | Single monorepo, shared types between backend and frontend via `packages/a2ui-spec`. |
@@ -32,19 +32,21 @@ runtime, while still defining everything as a proper OpenUI
 
 ```
 ┌─────────────┐        ┌──────────────────────────┐        ┌──────────────┐
-│  apps/web   │  HTTP  │        apps/api           │  HTTP  │  Claude API  │
-│  (Next.js + │◄──────►│  Node.js + TS             │◄──────►│  (tool-use)  │
-│  OpenUI)    │  JSON  │  - Claude client + tools   │        └──────────────┘
-│             │        │  - A2UI component tools    │
-│  Diagram    │        │  - Cache + progress         │        ┌──────────────┐
-│  StepThrough│        │  - RAG retriever (planned)  │◄──────►│  Postgres +  │
-│  Quiz       │        │                              │        │  pgvector    │
-│  Simulation │        └──────────────────────────┘        └──────────────┘
-│  Chart      │
-│  FormulaStep│        ┌─────────────┐
-└─────────────┘        │ apps/web-3d │  Not built — separate surface for
-                        │ (CopilotKit)│  3D / simulation-heavy answers,
-                        └─────────────┘  driven by the same apps/api.
+│  apps/web   │  HTTP  │        apps/api           │  HTTP  │ Claude API   │
+│  (Next.js + │◄──────►│  Node.js + TS             │◄──────►│  - or -      │
+│  OpenUI)    │  JSON  │  - src/llm: Anthropic +    │        │ OpenAI API   │
+│             │        │    OpenAI handlers          │        └──────────────┘
+│  Diagram    │        │  - A2UI component tools    │
+│  StepThrough│        │  - Cache + progress         │        ┌──────────────┐
+│  Quiz       │        │  - RAG retriever (planned)  │◄──────►│  Postgres +  │
+│  Simulation │        │                              │        │  pgvector    │
+│  Chart      │        └──────────────────────────┘        └──────────────┘
+│  FormulaStep│
+└─────────────┘        ┌─────────────┐  Copilot generative UI: the model
+                        │ apps/web-3d │  reconfigures a live 3D scene
+                        │ (CopilotKit │  (wave field / orbitals / torus
+                        │  + r3f)     │  knot) via its own /api/copilotkit
+                        └─────────────┘  runtime (Anthropic or OpenAI).
 ```
 
 `packages/a2ui-spec` is the single source of truth for each component's prop
@@ -59,8 +61,8 @@ raw source — see its README for why that matters here.
 gloomy/
 ├── apps/
 │   ├── web/        # OpenUI + Next.js frontend — the main 2D generative UI surface
-│   ├── web-3d/      # CopilotKit frontend — not started
-│   └── api/         # Node.js + TS backend — Claude tool-use, cache, progress, DB
+│   ├── web-3d/      # CopilotKit + react-three-fiber — copilot-driven live 3D scenes
+│   └── api/         # Node.js + TS backend — Claude/OpenAI tool-use, cache, progress, DB
 ├── packages/
 │   └── a2ui-spec/   # Shared Zod schemas for the A2UI component catalog (compiled)
 ├── docs/            # Architecture notes, component spec, build order
@@ -79,7 +81,7 @@ the frontend knows how to render. All 6 are implemented (see
 
 - [x] 1. Scaffold `apps/web` (OpenUI) + `apps/api` (backend) skeleton, confirm they talk to each other.
 - [x] 2. Build the A2UI components with hardcoded data — no LLM yet. Confirmed rendering on desktop and iPad-width viewports (real headless-browser checks, not just eyeballing).
-- [x] 3. Wire Claude tool-use to populate components dynamically. *(Code path is real and tested against a mocked Anthropic client + real HTTP checks; never exercised against a live model — no `ANTHROPIC_API_KEY` was available while building. Add one to `apps/api/.env` to actually try it.)*
+- [x] 3. Wire LLM tool-use to populate components dynamically — both a Claude handler and an OpenAI handler behind one interface (`apps/api/src/llm/`). *(Code paths are real and tested against mocked clients + real HTTP checks; never exercised against live models — no API keys were available while building. Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to `apps/api/.env` to actually try it.)*
 - [ ] 4. Add RAG grounding so content generation pulls from real sources instead of the model's raw knowledge. Not started — `sources`/`chunks` tables exist (pgvector-ready) but nothing ingests into them.
 - [x] 5. Expand the component catalog (Simulation, Chart, FormulaStepper) — built alongside the first 3 in step 2, since it was pure schema/rendering work with no dependency on the core loop being validated first.
 - [x] 6. Add caching + basic progress tracking. Real Postgres cache (hit skips Claude entirely, verified working with zero Claude credentials) + progress rows per response.
@@ -92,7 +94,7 @@ pnpm install   # from repo root — installs everything, builds packages/a2ui-sp
 
 # apps/api — terminal 1
 cd apps/api
-cp .env.example .env          # fill in ANTHROPIC_API_KEY for real Claude, DATABASE_URL for cache/progress
+cp .env.example .env          # fill in ANTHROPIC_API_KEY and/or OPENAI_API_KEY, plus DATABASE_URL for cache/progress
 pnpm run db:migrate             # applies src/db/migrations/ — needs a Postgres with `CREATE EXTENSION vector;` available
 pnpm dev                         # http://localhost:4000
 
@@ -100,20 +102,23 @@ pnpm dev                         # http://localhost:4000
 cd apps/web
 cp .env.local.example .env.local
 pnpm dev                         # http://localhost:3000
+
+# apps/web-3d — terminal 3 (optional)
+cd apps/web-3d
+cp .env.local.example .env.local  # add a key for the copilot chat; the 3D scene works without one
+pnpm dev                           # http://localhost:3002
 ```
 
-Open `http://localhost:3000` and ask a question. Without `ANTHROPIC_API_KEY`
-set, you'll get a clear "Claude isn't configured" message rather than a
-crash — everything else (the UI, the cache path, `/gallery`) works without
-it. `/gallery` shows all 6 components with hardcoded data, independent of
-whether `apps/api` is even running.
-
-`apps/web-3d` isn't scaffolded — see its README for when that's warranted.
+Open `http://localhost:3000` and ask a question. With no API keys set,
+you'll get a clear "no LLM provider configured" message rather than a
+crash — everything else (the UI, the cache path, `/gallery`, the entire 3D
+lab minus its chat) works without keys. `/gallery` shows all 6 components
+with hardcoded data, independent of whether `apps/api` is even running.
 
 ### Testing
 
 ```bash
-cd apps/api && pnpm test   # mocked-Claude-client tests always run; live-Postgres tests run if DATABASE_URL is set, skip cleanly otherwise
+cd apps/api && pnpm test   # mocked Claude + OpenAI client tests always run; live-Postgres tests run if DATABASE_URL is set, skip cleanly otherwise
 ```
 
 ### Database
