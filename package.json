@@ -1,0 +1,6 @@
+{
+  "name": "gloomy",
+  "private": true,
+  "description": "OKX Hackathon project: generative-UI explanations (Diagram, StepThrough, Quiz, ...) grounded in real sources via Claude tool-use and RAG.",
+  "packageManager": "pnpm@9.0.0"
+}
