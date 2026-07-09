@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npx skills add okx/onchainos-skills)",
+      "Bash(npx --yes skills add okx/onchainos-skills)"
+    ]
+  }
+}
