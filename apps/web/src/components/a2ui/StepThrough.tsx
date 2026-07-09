@@ -15,6 +15,11 @@ export function StepThrough({ title, steps }: StepThroughProps) {
       <p className="a2ui-step-progress">
         Step {index + 1} of {steps.length}
       </p>
+      <div className="a2ui-step-dots" aria-hidden>
+        {steps.map((_, i) => (
+          <i key={i} className={i <= index ? "active" : undefined} />
+        ))}
+      </div>
       <div className="a2ui-step-body">
         <h4>{step.heading}</h4>
         <p>{step.body}</p>

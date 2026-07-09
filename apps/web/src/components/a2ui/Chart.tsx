@@ -5,7 +5,7 @@ import type { ChartProps } from "@gloomy/a2ui-spec";
 const CHART_WIDTH = 480;
 const CHART_HEIGHT = 240;
 const CHART_PADDING = 32;
-const SERIES_COLORS = ["#6ea8fe", "#f2b880", "#8ad6a6", "#e28ac6"];
+const SERIES_COLORS = ["#8b7cff", "#ffa06b", "#5ad6a9", "#6bb8ff"];
 
 export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
   const categories = series[0]?.points.map((p) => String(p.x)) ?? [];
@@ -38,14 +38,14 @@ export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
             y1={CHART_PADDING}
             x2={CHART_PADDING}
             y2={CHART_HEIGHT - CHART_PADDING}
-            stroke="#3a3a48"
+            stroke="#31313e"
           />
           <line
             x1={CHART_PADDING}
             y1={CHART_HEIGHT - CHART_PADDING}
             x2={CHART_WIDTH - CHART_PADDING}
             y2={CHART_HEIGHT - CHART_PADDING}
-            stroke="#3a3a48"
+            stroke="#31313e"
           />
 
           {kind === "line" &&
@@ -90,7 +90,7 @@ export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
               key={cat}
               x={xForIndex(i)}
               y={CHART_HEIGHT - CHART_PADDING + 16}
-              fill="#9aa3b2"
+              fill="#70707e"
               fontSize={11}
               textAnchor="middle"
             >

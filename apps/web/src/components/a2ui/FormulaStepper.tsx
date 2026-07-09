@@ -15,6 +15,11 @@ export function FormulaStepper({ title, terms }: FormulaStepperProps) {
       <p className="a2ui-step-progress">
         Term {index + 1} of {terms.length}
       </p>
+      <div className="a2ui-step-dots" aria-hidden>
+        {terms.map((_, i) => (
+          <i key={i} className={i <= index ? "active" : undefined} />
+        ))}
+      </div>
       <div className="a2ui-formula-term">
         <code>{term.expression}</code>
         {term.note && <p>{term.note}</p>}

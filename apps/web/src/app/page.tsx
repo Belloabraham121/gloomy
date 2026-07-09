@@ -43,8 +43,15 @@ export default function Home() {
 
   return (
     <main>
-      <h1>gloomy</h1>
-      <p>Ask a question, get one interactive component back.</p>
+      <p className="hero-eyebrow">Generative learning UI</p>
+      <h1 className="hero-title">
+        Ask anything. <em>See the answer.</em>
+      </h1>
+      <p className="hero-sub">
+        One question in, one interactive component out — a diagram, a
+        step-through, a quiz, a live simulation — instead of a wall of chat
+        text.
+      </p>
 
       <form
         onSubmit={(e) => {
@@ -57,8 +64,9 @@ export default function Home() {
           type="text"
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask something..."
+          placeholder="How does gradient descent actually work?"
           className="a2ui-chat-input"
+          aria-label="Your question"
         />
         <button
           type="submit"
@@ -86,12 +94,12 @@ export default function Home() {
       </div>
 
       {state.kind === "loading" && (
-        <div className="status">Asking apps/api&hellip;</div>
+        <div className="status loading">Thinking about the best way to show this&hellip;</div>
       )}
 
       {state.kind === "error" && state.status === 501 && (
         <div className="status error">
-          Claude isn&apos;t configured on apps/api yet: {state.message}
+          No LLM provider is configured on apps/api yet: {state.message}
         </div>
       )}
       {state.kind === "error" && state.status !== 501 && (
@@ -103,15 +111,15 @@ export default function Home() {
       {state.kind === "success" && (
         <div className="a2ui-chat-result">
           {state.response.cached && (
-            <p className="a2ui-chat-cached-note">Served from cache.</p>
+            <p className="a2ui-chat-cached-note">Served from cache</p>
           )}
           <A2uiRenderer payload={state.response} />
         </div>
       )}
 
       <p className="a2ui-chat-gallery-link">
-        See the full A2UI component catalog with sample data at{" "}
-        <a href="/gallery">/gallery</a>.
+        Browse the full component catalog with sample data in the{" "}
+        <a href="/gallery">gallery</a>.
       </p>
     </main>
   );

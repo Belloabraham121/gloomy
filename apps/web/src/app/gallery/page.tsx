@@ -13,21 +13,51 @@ import {
   sampleStepThrough,
 } from "@/fixtures/sample-a2ui";
 
+function GalleryItem({
+  kind,
+  children,
+}: {
+  kind: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="a2ui-gallery-item">
+      <span className="a2ui-kind">{kind}</span>
+      {children}
+    </div>
+  );
+}
+
 export default function GalleryPage() {
   return (
     <main className="a2ui-gallery">
-      <h1>A2UI component gallery</h1>
-      <p>
-        Build order step 2: all 6 components rendered from hardcoded fixture
-        data, no backend or LLM involved.
+      <p className="hero-eyebrow">Component catalog</p>
+      <h1 className="hero-title">
+        The A2UI <em>gallery</em>
+      </h1>
+      <p className="hero-sub">
+        Every component the model is allowed to answer with, rendered here
+        from hardcoded fixture data — no backend or LLM involved.
       </p>
       <div className="a2ui-gallery-grid">
-        <Diagram {...sampleDiagram} />
-        <StepThrough {...sampleStepThrough} />
-        <Quiz {...sampleQuiz} />
-        <Simulation {...sampleSimulation} />
-        <Chart {...sampleChart} />
-        <FormulaStepper {...sampleFormulaStepper} />
+        <GalleryItem kind="Diagram">
+          <Diagram {...sampleDiagram} />
+        </GalleryItem>
+        <GalleryItem kind="StepThrough">
+          <StepThrough {...sampleStepThrough} />
+        </GalleryItem>
+        <GalleryItem kind="Quiz">
+          <Quiz {...sampleQuiz} />
+        </GalleryItem>
+        <GalleryItem kind="Simulation">
+          <Simulation {...sampleSimulation} />
+        </GalleryItem>
+        <GalleryItem kind="Chart">
+          <Chart {...sampleChart} />
+        </GalleryItem>
+        <GalleryItem kind="FormulaStepper">
+          <FormulaStepper {...sampleFormulaStepper} />
+        </GalleryItem>
       </div>
     </main>
   );

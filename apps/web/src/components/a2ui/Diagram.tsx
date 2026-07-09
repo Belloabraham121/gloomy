@@ -31,7 +31,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
               refY="4"
               orient="auto"
             >
-              <path d="M0,0 L8,4 L0,8 Z" fill="#7c8ba1" />
+              <path d="M0,0 L8,4 L0,8 Z" fill="#5f5f76" />
             </marker>
           </defs>
 
@@ -67,7 +67,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                     y1={from.y}
                     x2={to.x}
                     y2={to.y}
-                    stroke="#7c8ba1"
+                    stroke="#5f5f76"
                     strokeWidth={1.5}
                     markerEnd="url(#a2ui-arrow)"
                   />
@@ -75,7 +75,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                     <text
                       x={midX + nx * offset}
                       y={midY + ny * offset - 6}
-                      fill="#c6ceda"
+                      fill="#a2a2b0"
                       fontSize={12}
                       textAnchor="middle"
                     >
@@ -102,13 +102,13 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                   width={boxWidth}
                   height={boxHeight}
                   rx={10}
-                  fill="#1a1a22"
-                  stroke="#3a3a48"
+                  fill="#1b1b24"
+                  stroke="#31313e"
                 />
                 <text
                   x={pos.x}
                   y={pos.y - (node.description ? 4 : -4)}
-                  fill="#e8e8ee"
+                  fill="#ececf1"
                   fontSize={13}
                   fontWeight={600}
                   textAnchor="middle"
@@ -119,7 +119,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                   <text
                     x={pos.x}
                     y={pos.y + 14}
-                    fill="#9aa3b2"
+                    fill="#8f8f9d"
                     fontSize={11}
                     textAnchor="middle"
                   >
