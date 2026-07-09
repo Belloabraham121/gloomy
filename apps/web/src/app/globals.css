@@ -36,6 +36,55 @@ code {
   border-color: #c0392b;
 }
 
+/* Chat page */
+
+.a2ui-chat-form {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1.5rem;
+}
+
+.a2ui-chat-input {
+  flex: 1;
+  background: #131318;
+  border: 1px solid #2a2a35;
+  border-radius: 6px;
+  padding: 0.6rem 0.8rem;
+  color: #e8e8ee;
+  font-size: 0.95rem;
+}
+
+.a2ui-chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.a2ui-chat-suggestions .a2ui-button {
+  font-size: 0.8rem;
+}
+
+.a2ui-chat-result {
+  margin-top: 1.5rem;
+}
+
+.a2ui-chat-cached-note {
+  font-size: 0.8rem;
+  color: #9aa3b2;
+  margin: 0 0 0.5rem;
+}
+
+.a2ui-chat-gallery-link {
+  margin-top: 2rem;
+  font-size: 0.85rem;
+  color: #9aa3b2;
+}
+
+.a2ui-chat-gallery-link a {
+  color: #6ea8fe;
+}
+
 /* A2UI component gallery */
 
 main.a2ui-gallery {
