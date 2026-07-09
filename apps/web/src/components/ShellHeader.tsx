@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { Logo } from "@/components/Logo";
 
 const WEB3D_URL = process.env.NEXT_PUBLIC_WEB3D_URL ?? "http://localhost:3002";
 
@@ -11,11 +12,16 @@ export function ShellHeader() {
   return (
     <header className="shell-header">
       <Link href="/" className="shell-wordmark">
-        <i aria-hidden />
-        gloomy
+        <Logo size={26} />
       </Link>
       <nav className="shell-nav" aria-label="Primary">
         <Link href="/" aria-current={pathname === "/" ? "page" : undefined}>
+          Home
+        </Link>
+        <Link
+          href="/chat"
+          aria-current={pathname === "/chat" ? "page" : undefined}
+        >
           Chat
         </Link>
         <Link

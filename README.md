@@ -109,7 +109,7 @@ cp .env.local.example .env.local  # add a key for the copilot chat; the 3D scene
 pnpm dev                           # http://localhost:3002
 ```
 
-Open `http://localhost:3000` and ask a question. With no API keys set,
+Open `http://localhost:3000` for the landing page, or `/chat` to ask a question. With no API keys set,
 you'll get a clear "no LLM provider configured" message rather than a
 crash — everything else (the UI, the cache path, `/gallery`, the entire 3D
 lab minus its chat) works without keys. `/gallery` shows all 6 components
