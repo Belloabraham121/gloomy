@@ -31,7 +31,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
               refY="4"
               orient="auto"
             >
-              <path d="M0,0 L8,4 L0,8 Z" fill="#5f5f76" />
+              <path className="dg-arrow" d="M0,0 L8,4 L0,8 Z" fill="#5f5f76" />
             </marker>
           </defs>
 
@@ -63,6 +63,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
               return (
                 <g key={`${edge.from}-${edge.to}-${i}`}>
                   <line
+                    className="dg-edge"
                     x1={from.x}
                     y1={from.y}
                     x2={to.x}
@@ -73,6 +74,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                   />
                   {edge.label && (
                     <text
+                      className="dg-edge-label"
                       x={midX + nx * offset}
                       y={midY + ny * offset - 6}
                       fill="#a2a2b0"
@@ -97,6 +99,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
             return (
               <g key={node.id}>
                 <rect
+                  className="dg-node"
                   x={pos.x - boxWidth / 2}
                   y={pos.y - boxHeight / 2}
                   width={boxWidth}
@@ -106,6 +109,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                   stroke="#31313e"
                 />
                 <text
+                  className="dg-label"
                   x={pos.x}
                   y={pos.y - (node.description ? 4 : -4)}
                   fill="#ececf1"
@@ -117,6 +121,7 @@ export function Diagram({ title, nodes, edges }: DiagramProps) {
                 </text>
                 {node.description && (
                   <text
+                    className="dg-desc"
                     x={pos.x}
                     y={pos.y + 14}
                     fill="#8f8f9d"
