@@ -34,6 +34,7 @@ export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
       <div className="a2ui-diagram-scroll">
         <svg width={CHART_WIDTH} height={CHART_HEIGHT} role="img" aria-label={title}>
           <line
+            className="ch-axis"
             x1={CHART_PADDING}
             y1={CHART_PADDING}
             x2={CHART_PADDING}
@@ -41,6 +42,7 @@ export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
             stroke="#31313e"
           />
           <line
+            className="ch-axis"
             x1={CHART_PADDING}
             y1={CHART_HEIGHT - CHART_PADDING}
             x2={CHART_WIDTH - CHART_PADDING}
@@ -87,6 +89,7 @@ export function Chart({ title, kind, xLabel, yLabel, series }: ChartProps) {
 
           {categories.map((cat, i) => (
             <text
+              className="ch-cat"
               key={cat}
               x={xForIndex(i)}
               y={CHART_HEIGHT - CHART_PADDING + 16}

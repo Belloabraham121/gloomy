@@ -8,6 +8,7 @@ import { Diagram } from "@/components/a2ui/Diagram";
 import { Quiz } from "@/components/a2ui/Quiz";
 import { Simulation } from "@/components/a2ui/Simulation";
 import { StepThrough } from "@/components/a2ui/StepThrough";
+import { LogoMark } from "@/components/Logo";
 import {
   sampleChart,
   sampleDiagram,
@@ -20,45 +21,59 @@ gsap.registerPlugin(useGSAP);
 
 interface DemoState {
   key: string;
-  prompt: string;
   chip: string;
+  icon: string;
+  prompt: string;
+  heading: string;
   node: React.ReactNode;
 }
 
 const DEMO_STATES: DemoState[] = [
   {
     key: "diagram",
-    chip: "Show it as a diagram",
+    chip: "As a diagram",
+    icon: "◇",
     prompt: "Show me how a request flows through gloomy",
+    heading: "Diagram",
     node: <Diagram {...sampleDiagram} />,
   },
   {
     key: "steps",
-    chip: "Walk me through it",
+    chip: "Step by step",
+    icon: "≡",
     prompt: "Walk me through it step by step instead",
+    heading: "StepThrough",
     node: <StepThrough {...sampleStepThrough} />,
   },
   {
     key: "quiz",
-    chip: "Quiz me instead",
+    chip: "Quiz me",
+    icon: "?",
     prompt: "Actually — quiz me on this",
+    heading: "Quiz",
     node: <Quiz {...sampleQuiz} />,
   },
   {
     key: "sim",
-    chip: "Let me play with it",
+    chip: "Let me play",
+    icon: "∿",
     prompt: "Give me something I can play with",
+    heading: "Simulation",
     node: <Simulation {...sampleSimulation} />,
   },
   {
     key: "chart",
-    chip: "Chart the numbers",
+    chip: "Chart it",
+    icon: "▁▃▆",
     prompt: "Chart the numbers for me",
+    heading: "Chart",
     node: <Chart {...sampleChart} />,
   },
 ];
 
-export function LiveDemo({ variant }: { variant?: "lv2" }) {
+const SIDEBAR_ITEMS = ["Dashboard", "Components", "Sessions", "Analytics"];
+
+export function LandingDashboard() {
   const [active, setActive] = useState(0);
   const [typed, setTyped] = useState(DEMO_STATES[0].prompt);
   const [phase, setPhase] = useState<"idle" | "typing">("idle");
@@ -72,7 +87,6 @@ export function LiveDemo({ variant }: { variant?: "lv2" }) {
     [],
   );
 
-  // GSAP morph: runs on mount and every time the stage swaps components
   useGSAP(
     () => {
       const prefersReduced = window.matchMedia(
@@ -81,21 +95,13 @@ export function LiveDemo({ variant }: { variant?: "lv2" }) {
       if (prefersReduced || !stageRef.current) return;
       gsap.fromTo(
         stageRef.current.firstElementChild,
-        {
-          y: 30,
-          autoAlpha: 0,
-          rotateX: 9,
-          scale: 0.96,
-          filter: "blur(5px)",
-          transformOrigin: "50% 20%",
-        },
+        { y: 26, autoAlpha: 0, scale: 0.975, filter: "blur(5px)" },
         {
           y: 0,
           autoAlpha: 1,
-          rotateX: 0,
           scale: 1,
           filter: "blur(0px)",
-          duration: 0.65,
+          duration: 0.6,
           ease: "power3.out",
         },
       );
@@ -116,52 +122,86 @@ export function LiveDemo({ variant }: { variant?: "lv2" }) {
       setTyped(target.prompt.slice(0, i));
       if (i >= target.prompt.length) {
         if (timerRef.current) clearInterval(timerRef.current);
-        // brief beat after typing finishes, then morph the stage
         setTimeout(() => {
           setActive(index);
           setPhase("idle");
-        }, 260);
+        }, 240);
       }
-    }, 22);
+    }, 20);
   }
 
   const current = DEMO_STATES[active];
 
   return (
-    <div className={variant === "lv2" ? "lv2-demo" : "demo-frame"}>
-      <div className="demo-chrome" aria-hidden>
-        <i />
-        <i />
-        <i />
-        <span>gloomy — live</span>
-      </div>
-
-      <div className="demo-promptbar">
-        <span className="demo-prompt-text">
-          {typed}
-          <i className={`demo-caret ${phase === "typing" ? "busy" : ""}`} />
-        </span>
-        <span className={`demo-status ${phase}`}>
-          {phase === "typing" ? "generating…" : "rendered"}
-        </span>
-      </div>
-
-      <div className="demo-stage" ref={stageRef}>
-        <div key={current.key}>{current.node}</div>
-      </div>
-
-      <div className="demo-chips" role="group" aria-label="Try a different component">
+    <div className="lv3-demo">
+      {/* the setting prompts */}
+      <div className="lv3-chips" role="group" aria-label="Try a different component">
         {DEMO_STATES.map((state, i) => (
           <button
             key={state.key}
             type="button"
-            className={`demo-chip ${i === active ? "active" : ""}`}
+            className={`lv3-chip ${i === active ? "active" : ""}`}
             onClick={() => choose(i)}
             disabled={phase === "typing"}
           >
+            <i aria-hidden>{state.icon}</i>
             {state.chip}
           </button>
         ))}
+      </div>
+
+      {/* the dashboard window */}
+      <div className="lv3-dash">
+        <aside className="lv3-dash-side">
+          <span className="lv3-dash-logo">
+            <LogoMark size={22} variant="ink" />
+            gloomy
+          </span>
+          <nav>
+            {SIDEBAR_ITEMS.map((item, i) => (
+              <span
+                key={item}
+                className={`lv3-dash-nav ${i === 0 ? "active" : ""}`}
+              >
+                <i aria-hidden />
+                {item}
+              </span>
+            ))}
+          </nav>
+        </aside>
+
+        <div className="lv3-dash-main">
+          <div className="lv3-dash-top">
+            <span className="lv3-dash-crumb">
+              Live demo <em>/</em> {current.heading}
+            </span>
+            <div className="lv3-dash-prompt">
+              <span className="lv3-dash-prompt-text">
+                {typed}
+                <i
+                  className={`lv3-caret ${phase === "typing" ? "busy" : ""}`}
+                />
+              </span>
+              <span className={`lv3-dash-status ${phase}`}>
+                {phase === "typing" ? "generating…" : "✦ rendered"}
+              </span>
+            </div>
+          </div>
+
+          <div className="lv3-dash-body">
+            <h3 className="lv3-dash-heading">
+              Your answer, as a <em>{current.heading}</em>
+            </h3>
+            <p className="lv3-dash-sub">
+              One question in, one interactive component out — picked and
+              filled by the model, validated by the schema.
+            </p>
+
+            <div className="lv3-stage" ref={stageRef}>
+              <div key={current.key}>{current.node}</div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
