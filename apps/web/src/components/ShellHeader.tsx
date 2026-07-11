@@ -5,8 +5,6 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { Logo } from "@/components/Logo";
 
-const WEB3D_URL = process.env.NEXT_PUBLIC_WEB3D_URL ?? "http://localhost:3002";
-
 export function ShellHeader() {
   const pathname = usePathname();
   const onLanding = pathname === "/";
@@ -48,16 +46,6 @@ export function ShellHeader() {
         >
           Chat
         </Link>
-        <Link
-          href="/gallery"
-          aria-current={pathname === "/gallery" ? "page" : undefined}
-          onClick={() => setOpen(false)}
-        >
-          Gallery
-        </Link>
-        <a href={WEB3D_URL} onClick={() => setOpen(false)}>
-          3D Lab
-        </a>
       </nav>
     </header>
   );

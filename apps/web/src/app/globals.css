@@ -437,6 +437,332 @@ h1.hero-title {
   text-decoration: underline;
 }
 
+/* --------------------------------------------------------------------------
+   Chat app (ChatGPT/Claude-style): sidebar + conversation + bottom composer.
+   Full-viewport below the floating pill header.
+-------------------------------------------------------------------------- */
+
+main.chat-app {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  height: 100dvh;
+  overflow: hidden;
+}
+
+.chat-sidebar {
+  flex: 0 0 264px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 5.5rem 0.75rem 1rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.chat-new {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.6rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--sky-ink);
+  font-size: 0.9rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 120ms ease;
+}
+
+.chat-new:hover {
+  background: var(--paper-2);
+}
+
+.chat-convo-list {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin-top: 0.4rem;
+}
+
+.chat-convo-empty {
+  color: var(--sky-faint);
+  font-size: 0.82rem;
+  padding: 0.4rem 0.6rem;
+}
+
+.chat-convo {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+}
+
+.chat-convo:hover,
+.chat-convo.active {
+  background: var(--paper-2);
+}
+
+.chat-convo-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  padding: 0.5rem 0.6rem;
+  border: none;
+  background: transparent;
+  color: var(--sky-soft);
+  font-size: 0.86rem;
+  font-family: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chat-convo.active .chat-convo-open {
+  color: var(--sky-ink);
+  font-weight: 600;
+}
+
+.chat-convo-del {
+  flex: 0 0 auto;
+  padding: 0 0.55rem;
+  border: none;
+  background: transparent;
+  color: var(--sky-faint);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+}
+
+.chat-convo:hover .chat-convo-del {
+  opacity: 1;
+}
+
+.chat-convo-del:hover {
+  color: #d1495b;
+}
+
+.chat-sidebar-toggle {
+  display: none;
+}
+
+.chat-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-scroll {
+  flex: 1;
+  overflow-y: auto;
+  padding: 5.5rem 1rem 1rem;
+}
+
+.chat-empty {
+  max-width: 640px;
+  margin: 12vh auto 0;
+  text-align: center;
+}
+
+.chat-empty-title {
+  font-size: clamp(1.5rem, 4vw, 2.1rem);
+  font-weight: 750;
+  margin: 0 0 0.7rem;
+  color: var(--sky-ink);
+}
+
+.chat-empty-sub {
+  color: var(--sky-soft);
+  font-size: 1rem;
+  margin: 0 0 1.8rem;
+}
+
+.chat-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  justify-content: center;
+}
+
+.chat-suggestion {
+  padding: 0.55rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: #fff;
+  color: var(--sky-soft);
+  font-size: 0.86rem;
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 120ms ease, color 120ms ease;
+}
+
+.chat-suggestion:hover {
+  border-color: var(--leaf);
+  color: var(--sky-ink);
+}
+
+.chat-thread {
+  max-width: 720px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.6rem;
+}
+
+.chat-turn {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+}
+
+.chat-msg.user {
+  align-self: flex-end;
+  max-width: 80%;
+  background: var(--sky-ink);
+  color: #fff;
+  font-size: 0.95rem;
+  border-radius: 16px 16px 4px 16px;
+  padding: 0.65rem 0.95rem;
+}
+
+.chat-msg.assistant {
+  align-self: flex-start;
+  width: 100%;
+}
+
+.chat-msg.assistant .status {
+  margin-top: 0;
+}
+
+.chat-composer-wrap {
+  flex: 0 0 auto;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 1.3rem;
+}
+
+.chat-doc-chip {
+  margin-bottom: 0.6rem;
+}
+
+.chat-composer {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.4rem 0.4rem 0.5rem;
+  background: #fff;
+  border: 1px solid var(--border-strong);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+  transition: border-color 140ms ease;
+}
+
+.chat-composer:focus-within {
+  border-color: var(--leaf);
+}
+
+.chat-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  padding: 0.5rem 0.4rem;
+  color: var(--sky-ink);
+  font-size: 0.98rem;
+  font-family: inherit;
+}
+
+.chat-input:focus {
+  outline: none;
+}
+
+.chat-input::placeholder {
+  color: var(--sky-faint);
+}
+
+.chat-attach,
+.chat-send {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 10px;
+  border: 1px solid var(--border-strong);
+  background: #fff;
+  color: var(--sky-soft);
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: background 120ms ease, color 120ms ease;
+}
+
+.chat-attach:hover:not(:disabled) {
+  background: var(--paper-2);
+}
+
+.chat-send {
+  border: none;
+  background: var(--accent-gradient);
+  color: #fff;
+  border-radius: 50%;
+  font-weight: 700;
+}
+
+.chat-send:disabled,
+.chat-attach:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@media (max-width: 760px) {
+  .chat-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 30;
+    transform: translateX(-100%);
+    transition: transform 180ms ease;
+    box-shadow: 0 10px 40px rgba(34, 48, 63, 0.2);
+  }
+
+  .chat-sidebar.open {
+    transform: translateX(0);
+  }
+
+  /* sits just below the floating pill header so the two don't overlap */
+  .chat-sidebar-toggle {
+    display: inline-grid;
+    place-items: center;
+    position: fixed;
+    top: 76px;
+    left: 12px;
+    z-index: 31;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.92);
+    color: var(--sky-ink);
+    font-size: 1.05rem;
+    cursor: pointer;
+    backdrop-filter: blur(8px);
+  }
+
+  .chat-scroll {
+    padding-top: 6.5rem;
+  }
+}
+
 /* Status blocks */
 
 .status {
@@ -1761,120 +2087,547 @@ body:has(.lv3-theme) .shell-nav a[aria-current="page"] {
 }
 
 @media (max-width: 899px) {
-  .lv3-showcase-viewport {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
-    scroll-snap-type: x mandatory;
-  }
-
+  /* the pin+scrub track runs on mobile too - just size the cards down */
   .lv3-showcase-card {
-    scroll-snap-align: start;
     width: 78vw;
     max-width: 300px;
   }
 }
 
-/* ---- pipeline diagram: connecting-line reveal ---- */
+/* ---- paper story: scroll-scrubbed paper -> chunks -> store -> answer ----
+   Default CSS shows the FINAL stage (store left, question + answer in) so
+   reduced-motion and no-JS render a complete scene; the GSAP timeline's
+   init resets everything to stage 1 before the pin starts. */
 
-.lv3-pipe-section {
+.lv3-paper-section {
   padding: 3.5rem 0 1rem;
 }
 
-.lv3-pipe-sub {
-  max-width: 34rem;
-  margin: 0.6rem auto 0;
-  color: var(--sky-soft);
-  font-size: 1rem;
-}
-
-.lv3-pipe-scroll {
-  max-width: 1080px;
+.lv3-ps-stage {
+  position: relative;
+  max-width: 680px;
+  height: 420px;
   margin: 2.5rem auto 0;
-  padding: 0 1.5rem;
-  overflow-x: auto;
 }
 
-.lv3-pipe-svg {
-  width: 100%;
-  min-width: 640px;
-  height: auto;
+/* NOTE: no CSS transforms on any .lv3-ps-* element GSAP animates - the
+   timeline owns transform entirely. Centering uses margin-inline: auto. */
+
+.lv3-ps-paper {
+  position: absolute;
+  left: 0;
+  right: 0;
+  margin-inline: auto;
+  top: 55px;
+  width: 230px;
+  padding: 1.4rem 1.2rem 1.2rem;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(34, 48, 63, 0.12);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.lv3-ps-badge {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  font-size: 0.62rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  color: #fff;
+  background: #d1495b;
+  border-radius: 5px;
+  padding: 0.14rem 0.4rem;
+}
+
+.lv3-ps-doc-title {
   display: block;
+  width: 70%;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--sky-ink);
+  opacity: 0.85;
+  margin-bottom: 0.85rem;
 }
 
-.lv3-pipe-node {
-  transform-box: fill-box;
-  transform-origin: center;
+.lv3-ps-doc-line {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--paper-line);
+  margin-bottom: 0.5rem;
 }
 
-.lv3-pipe-node rect {
-  fill: #fff;
-  stroke: rgba(34, 48, 63, 0.1);
-  stroke-width: 1.5;
-  filter: drop-shadow(0 6px 16px rgba(34, 48, 63, 0.08));
+.lv3-ps-chunks {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  visibility: hidden;
 }
 
-.lv3-pipe-label {
-  fill: var(--sky-ink);
-  font-family: var(--sans);
-  font-size: 14px;
-  font-weight: 700;
+.lv3-ps-chunk {
+  position: absolute;
+  width: 148px;
+  padding: 0.7rem 0.75rem;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  box-shadow: 0 8px 20px rgba(34, 48, 63, 0.1);
 }
 
-.lv3-pipe-desc {
-  fill: var(--sky-faint);
-  font-family: var(--sans);
-  font-size: 11px;
-  font-weight: 500;
+.lv3-ps-chunk span {
+  display: block;
+  height: 5px;
+  border-radius: 3px;
+  background: var(--paper-line);
+  margin-bottom: 0.4rem;
 }
 
-.lv3-pipe-edge {
+.lv3-ps-chunk span:last-child {
+  margin-bottom: 0;
+  background: var(--lilac-bg);
+}
+
+.lv3-ps-store {
+  position: absolute;
+  left: 5%;
+  top: 120px;
+  width: 190px;
+  padding: 0.85rem 0.95rem 0.95rem;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(34, 48, 63, 0.12);
+}
+
+.lv3-ps-store-label {
+  display: block;
+  font-size: 0.66rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--sky-faint);
+  margin-bottom: 0.6rem;
+}
+
+.lv3-ps-dots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+}
+
+.lv3-ps-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--lilac-bg);
+  justify-self: center;
+}
+
+.lv3-ps-dot.hot {
+  background: var(--leaf);
+  box-shadow: 0 0 0 4px rgba(31, 174, 83, 0.18);
+}
+
+.lv3-ps-question {
+  position: absolute;
+  right: 4%;
+  top: 6%;
+  max-width: 250px;
+  background: var(--sky-ink);
+  color: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 14px 14px 4px 14px;
+  padding: 0.6rem 0.9rem;
+  box-shadow: 0 10px 24px rgba(34, 48, 63, 0.22);
+}
+
+.lv3-ps-answer {
+  position: absolute;
+  right: 2%;
+  top: 27%;
+  width: 250px;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  box-shadow: 0 14px 34px rgba(34, 48, 63, 0.12);
+}
+
+.lv3-ps-answer-title {
+  display: block;
+  width: 55%;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--leaf-deep);
+  margin-bottom: 0.7rem;
+}
+
+.lv3-ps-answer-line {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--paper-line);
+  margin-bottom: 0.45rem;
+}
+
+.lv3-ps-spark {
+  display: block;
+  width: 100%;
+  margin-top: 0.7rem;
+}
+
+.lv3-ps-spark-path {
   fill: none;
-  stroke: var(--leaf);
-  stroke-width: 2;
+  stroke: var(--peach-ink);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
-.lv3-pipe-arrowhead {
-  fill: var(--leaf);
+.lv3-ps-captions {
+  position: relative;
+  height: 1.6rem;
+  margin-top: 1.2rem;
+  text-align: center;
 }
 
-/* ---- scenario reveal: thinking -> generated view ---- */
-
-.lv3-scenario-section {
-  padding: 3.5rem 0 1rem;
-}
-
-.lv3-scenarios {
-  max-width: 780px;
-  margin: 2.5rem auto 0;
-  padding: 0 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 2.4rem;
-}
-
-.lv3-scenario-prompt {
-  margin: 0 0 1rem;
-  font-size: 1.05rem;
+.lv3-ps-caption {
+  position: absolute;
+  left: 0;
+  right: 0;
+  font-size: 0.95rem;
   font-weight: 650;
-  color: var(--sky-ink);
+  color: var(--sky-soft);
+  opacity: 0;
+  visibility: hidden;
 }
 
-.lv3-scenario-thinking,
-.lv3-scenario-result {
-  margin-top: 0;
-}
-
-.lv3-scenario-3d {
-  height: 320px;
-  border-radius: 14px;
-  overflow: hidden;
-  background: radial-gradient(60rem 32rem at 50% -12rem, rgba(122, 99, 240, 0.14), transparent 65%),
-    #0b0b10;
+.lv3-ps-caption.c4 {
+  opacity: 1;
+  visibility: visible;
 }
 
 @media (max-width: 640px) {
-  .lv3-scenario-3d {
-    height: 260px;
+  .lv3-ps-stage {
+    height: 470px;
+  }
+
+  .lv3-ps-store {
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    top: 285px;
+  }
+
+  .lv3-ps-question {
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    width: fit-content;
+    top: 6px;
+  }
+
+  .lv3-ps-answer {
+    left: 0;
+    right: 0;
+    margin-inline: auto;
+    top: 72px;
+    width: 230px;
+  }
+}
+
+/* ---- scenario theater: laptop screen plays question -> thinking -> answer ----
+   CSS defaults show scene 0 as a finished answer (reduced-motion / no-JS);
+   the GSAP master timeline resets to the "question only" state before pin. */
+
+.lv3-theater-section {
+  padding: 3.5rem 0 1rem;
+}
+
+.lv3-laptop {
+  max-width: 720px;
+  margin: 2.5rem auto 0;
+  padding: 0 1.5rem;
+}
+
+.lv3-laptop-screen {
+  position: relative;
+  height: 400px;
+  background: #fff;
+  border: 10px solid #20272e;
+  border-radius: 18px;
+  box-shadow: 0 24px 60px rgba(34, 48, 63, 0.22);
+  overflow: hidden;
+}
+
+.lv3-laptop-deck {
+  position: relative;
+  height: 14px;
+  margin: 0 auto;
+  width: 108%;
+  max-width: none;
+  transform: translateX(-3.7%);
+  background: linear-gradient(180deg, #2b333b, #1a1f24);
+  border-radius: 0 0 14px 14px;
+}
+
+.lv3-laptop-notch {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  transform: translateX(-50%);
+  width: 90px;
+  height: 6px;
+  background: #12161a;
+  border-radius: 0 0 6px 6px;
+}
+
+.lv3-theater-scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Only scene 0 shows without JS / with reduced motion; the timeline reveals
+   scene 1 (and owns its horizontal offset via GSAP xPercent - no CSS
+   transform here, which would fight the tween). */
+.lv3-theater-scene[data-scene="1"] {
+  visibility: hidden;
+}
+
+/* the thinking row only appears mid-animation; static view goes straight
+   to the answer */
+.lv3-theater-thinking {
+  display: none;
+}
+
+.lv3-theater-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.9rem;
+  border-bottom: 1px solid var(--paper-line);
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: var(--sky-ink);
+  background: var(--paper-2);
+}
+
+.lv3-theater-body {
+  position: relative;
+  flex: 1;
+  padding: 1rem 1.1rem;
+  overflow: hidden;
+}
+
+.lv3-theater-q {
+  display: inline-block;
+  max-width: 80%;
+  background: var(--sky-ink);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  border-radius: 12px 12px 12px 4px;
+  padding: 0.5rem 0.8rem;
+  margin-bottom: 0.9rem;
+}
+
+.lv3-theater-thinking {
+  margin: 0 0 0.9rem;
+  font-size: 0.85rem;
+}
+
+.lv3-theater-answer {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr;
+  gap: 1rem;
+  align-items: center;
+}
+
+.lv3-theater-figure {
+  min-width: 0;
+}
+
+.lv3-theater-explain p {
+  margin: 0 0 0.55rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--sky-soft);
+}
+
+.lv3-theater-explain p:last-child {
+  margin-bottom: 0;
+}
+
+/* ---- illustrated figures (stem cell / blockchain) ---- */
+
+.lv3-fig {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.lv3-fig-title {
+  fill: var(--sky-ink);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.lv3-fig-label {
+  fill: var(--sky-ink);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.lv3-fig-arrow {
+  fill: none;
+  stroke: #b3bcc4;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.lv3-fig-arrow-new {
+  stroke: var(--leaf);
+}
+
+.lv3-fig-membrane {
+  fill: var(--lilac-bg);
+  stroke: var(--lilac-ink);
+  stroke-width: 2;
+}
+
+.lv3-fig-nucleus {
+  fill: var(--lilac-ink);
+  opacity: 0.85;
+}
+
+.lv3-fig-nucleolus {
+  fill: #4b39b8;
+}
+
+.lv3-fig-cell-a {
+  fill: #e7e3fc;
+  stroke: var(--lilac-ink);
+  stroke-width: 2;
+}
+
+.lv3-fig-neuron,
+.lv3-fig-axon {
+  fill: none;
+  stroke: var(--lilac-ink);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.lv3-fig-cell-b {
+  fill: var(--peach-bg);
+  stroke: var(--peach-ink);
+  stroke-width: 2;
+}
+
+.lv3-fig-striation {
+  stroke: var(--peach-ink);
+  stroke-width: 1.5;
+  opacity: 0.7;
+}
+
+.lv3-fig-cell-c {
+  fill: #f7c9c1;
+  stroke: #d1495b;
+  stroke-width: 2;
+}
+
+.lv3-fig-cell-c-dip {
+  fill: #eaa79c;
+}
+
+.lv3-fig-block {
+  fill: #fff;
+  stroke: rgba(34, 48, 63, 0.16);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 5px 12px rgba(34, 48, 63, 0.1));
+}
+
+.lv3-fig-block.candidate {
+  fill: #e4f6ea;
+  stroke: var(--leaf);
+}
+
+.lv3-fig-block-title {
+  fill: var(--sky-ink);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.lv3-fig-block-row {
+  fill: var(--sky-faint);
+  font-family: var(--sans);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+.lv3-fig-block-bar {
+  fill: var(--paper-line);
+}
+
+.lv3-fig-block-bar.hot {
+  fill: var(--lilac-ink);
+  opacity: 0.6;
+}
+
+.lv3-fig-mempool {
+  fill: var(--paper-2);
+  stroke: var(--paper-line);
+  stroke-width: 1.5;
+}
+
+.lv3-fig-mempool-label {
+  fill: var(--sky-faint);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 650;
+}
+
+.lv3-fig-tx {
+  fill: var(--peach-ink);
+  opacity: 0.75;
+}
+
+.lv3-fig-callout {
+  fill: none;
+  stroke: var(--sky-faint);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.lv3-fig-callout-label {
+  fill: var(--sky-soft);
+  font-family: var(--sans);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .lv3-laptop-screen {
+    height: 440px;
+  }
+
+  .lv3-theater-answer {
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+  }
+
+  .lv3-theater-explain p {
+    font-size: 0.74rem;
   }
 }
 

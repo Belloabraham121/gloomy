@@ -36,9 +36,6 @@ export function ShellHeader() {
         <a href={`${WEB_URL}/chat`} onClick={() => setOpen(false)}>
           Chat
         </a>
-        <a href={`${WEB_URL}/gallery`} onClick={() => setOpen(false)}>
-          Gallery
-        </a>
         <a href="/" aria-current="page" onClick={() => setOpen(false)}>
           3D Lab
         </a>
