@@ -2,33 +2,65 @@
 
 ## Request flow (2D / OpenUI path) — as actually built
 
-1. User asks a question in `apps/web` (or clicks a suggested question).
-2. `apps/web` `POST`s `{ threadId, sessionId?, messages }` to `apps/api`'s
-   `/api/chat`.
-3. `apps/api` checks the cache (Postgres, keyed on a hash of the question).
-   A hit returns immediately — no LLM is called, and no API key needs to
-   be set.
+1. User asks a question in `apps/web` (or clicks a suggested question). If
+   a document is active (see "Document upload + RAG grounding" below), the
+   question is appended as a new card on the stacking canvas rather than
+   replacing the previous one.
+2. `apps/web` `POST`s `{ threadId, sessionId?, documentId?, messages }` to
+   `apps/api`'s `/api/chat`.
+3. `apps/api` checks the cache (Postgres, keyed on a hash of the question
+   *and* `documentId` — see "Caching and progress tracking" below). A hit
+   returns immediately — no LLM is called, and no API key needs to be set.
 4. On a miss, `apps/api` picks a provider (`src/llm/index.ts`:
    `LLM_PROVIDER=anthropic|openai` forces one; otherwise Anthropic is
    preferred when both keys are present) and runs a tool-use turn. The
    available tools are generated from `packages/a2ui-spec` — one tool per
    A2UI component (`Diagram`, `StepThrough`, `Quiz`, `Simulation`,
    `Chart`, `FormulaStepper`). The model picks one and fills its arguments.
+   If `documentId` was passed, the retrieved grounding context (see below)
+   is appended to `SYSTEM_PROMPT` before the call.
 5. Whatever the model returns — from either provider — is validated against
    that same Zod schema (never trusted as-is). If invalid, one retry with
    the validation error fed back (`tool_result` for Claude, a `tool` role
    message for OpenAI, whose string-encoded arguments also get a
    JSON.parse guard).
-6. (Build order step 4, not started) Before/during the tool-use turn,
-   `apps/api` would retrieve grounding context from the RAG layer and
-   inject it into the prompt, so components are populated from real
-   sources rather than the model's parametric knowledge.
-7. The validated `{ component, props }` is cached, a progress row is
+6. The validated `{ component, props }` is cached, a progress row is
    recorded, and the whole thing is returned as a single JSON response —
    **not a stream**. See "Anthropic ↔ OpenUI transport gap" below for why.
-8. `apps/web`'s `A2uiRenderer` dispatches `component` to the matching React
+7. `apps/web`'s `A2uiRenderer` dispatches `component` to the matching React
    component from `a2uiComponents` (in `lib/a2ui-library.ts`) and renders
-   `props` directly.
+   `props` directly, appended as a new card on the canvas.
+
+## Document upload + RAG grounding (build order step 4) — implemented
+
+`POST /api/documents` (`apps/api/src/routes/documents.ts`, `multer` memory
+storage, PDF only, 20MB cap) runs `apps/api/src/rag/ingest.ts`:
+
+1. `pdf.ts` extracts raw text (`unpdf`, no network).
+2. `chunk.ts` splits it into ~1000-char, ~150-char-overlap chunks — a
+   hand-rolled paragraph-aware splitter with a sentence-splitting fallback
+   for text with no paragraph breaks, not a dependency, since the logic is
+   small and needed to be unit-testable without any API key.
+3. `embeddings.ts` embeds every chunk via OpenAI `text-embedding-3-small`
+   (1536 dims, matching the `vector(1536)` column). This needs
+   `OPENAI_API_KEY` even when `LLM_PROVIDER=anthropic`, since Anthropic has
+   no embeddings API — a dedicated error message flags this rather than
+   letting it look like a generic missing-key failure.
+4. One `sources` row and N `chunks` rows are inserted (Drizzle).
+
+`POST /api/chat` accepts an optional `documentId`. When present,
+`rag/retrieve.ts`'s `retrieveChunks` embeds the question and runs a
+pgvector cosine (`<=>`) nearest-neighbor query scoped to that source,
+`formatGroundingContext` turns the top-k chunks into a instruction block,
+and it's appended to `SYSTEM_PROMPT` for that turn only — no change to the
+tool-use/validation/retry logic itself.
+
+`apps/web`'s `/chat` page turns this into a stacking canvas
+(`apps/web/src/app/chat/page.tsx`): an upload control above the prompt bar
+calls `uploadDocument()` (`lib/api.ts`), shows upload/ready/error state,
+and once a document is ready every subsequent question passes its
+`sourceId` through as `documentId` — so the canvas accumulates a document
+overview plus grounded follow-up cards, all sharing the same source.
 
 ## Request flow (3D / CopilotKit path) — as actually built
 
@@ -107,9 +139,9 @@ alone (each package's own tsconfig looked correct in isolation).
 Postgres (via Drizzle) is used for both, defined in `apps/api/src/db/schema.ts`:
 
 - `cache_entries` — keyed on a SHA-256 hash of the (trimmed, lowercased)
-  question text. Once RAG grounding (step 4) lands, the source-set version
-  needs to be folded into that key too, so an updated source corpus
-  invalidates old cached answers instead of serving stale content.
+  question text plus the `documentId` it was grounded in (`""` when
+  ungrounded), so the same question against a different — or no —
+  document never wrongly hits another document's cached answer.
 - `sessions` / `progress_entries` — no auth; a session is just a
   server-generated id the client holds in `localStorage` (see root
   README's session-vs-account discussion). Every response (cached or not)
@@ -121,6 +153,9 @@ recording is skipped) rather than the whole chat endpoint failing. This is
 a deliberate contrast with Claude, which is a hard dependency — see
 `apps/api/src/claude/client.ts` vs `apps/api/src/db/client.ts`.
 
-`sources`/`chunks` tables exist in the same schema, pgvector-ready
-(`vector(1536)` column + HNSW cosine index), for step 4 — but nothing
-ingests into them yet.
+`sources`/`chunks` tables live in the same schema, pgvector-ready
+(`vector(1536)` column + HNSW cosine index) — see "Document upload + RAG
+grounding" above for what ingests into and reads from them. `sources` also
+carries a nullable `sessionId` (scopes a document to the canvas that
+uploaded it) and a `status` column (`processing|ready|failed`) for future
+upload-progress UI.

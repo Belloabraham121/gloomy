@@ -54,16 +54,20 @@ function extractToolUse(
 export async function runAnthropicToolUseTurn(
   client: AnthropicMessagesClient,
   messages: ChatMessage[],
+  groundingContext?: string,
 ): Promise<A2uiPayload> {
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
   }));
+  const system = groundingContext
+    ? `${SYSTEM_PROMPT}\n\n${groundingContext}`
+    : SYSTEM_PROMPT;
 
   const first = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: 1024,
-    system: SYSTEM_PROMPT,
+    system,
     tools: anthropicTools,
     tool_choice: { type: "any" },
     messages: anthropicMessages,
@@ -82,7 +86,7 @@ export async function runAnthropicToolUseTurn(
     const retry = await client.messages.create({
       model: ANTHROPIC_MODEL,
       max_tokens: 1024,
-      system: SYSTEM_PROMPT,
+      system,
       tools: anthropicTools,
       tool_choice: { type: "any" },
       messages: [

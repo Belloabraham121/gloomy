@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { chatRouter } from "./routes/chat.js";
+import { documentsRouter } from "./routes/documents.js";
 
 const app = express();
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
@@ -13,6 +14,7 @@ app.get("/health", (_req, res) => {
 });
 
 app.use("/api/chat", chatRouter);
+app.use("/api/documents", documentsRouter);
 
 app.listen(port, () => {
   console.log(`apps/api listening on http://localhost:${port}`);

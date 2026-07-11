@@ -16,7 +16,10 @@ export type LlmProviderName = "anthropic" | "openai";
 
 export interface LlmProvider {
   name: LlmProviderName;
-  runToolUseTurn: (messages: ChatMessage[]) => Promise<A2uiPayload>;
+  runToolUseTurn: (
+    messages: ChatMessage[],
+    groundingContext?: string,
+  ) => Promise<A2uiPayload>;
 }
 
 /**
@@ -60,15 +63,15 @@ export function getLlmProvider(env: NodeJS.ProcessEnv = process.env): LlmProvide
   if (chosen === "anthropic") {
     return {
       name: "anthropic",
-      runToolUseTurn: (messages) =>
-        runAnthropicToolUseTurn(getAnthropicClient(), messages),
+      runToolUseTurn: (messages, groundingContext) =>
+        runAnthropicToolUseTurn(getAnthropicClient(), messages, groundingContext),
     };
   }
   if (chosen === "openai") {
     return {
       name: "openai",
-      runToolUseTurn: (messages) =>
-        runOpenAIToolUseTurn(getOpenAIClient(), messages),
+      runToolUseTurn: (messages, groundingContext) =>
+        runOpenAIToolUseTurn(getOpenAIClient(), messages, groundingContext),
     };
   }
 

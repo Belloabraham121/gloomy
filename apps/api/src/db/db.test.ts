@@ -49,6 +49,32 @@ describe.skipIf(!hasDb)("database layer (live Postgres)", () => {
     expect(second?.component).toBe("StepThrough");
   });
 
+  it("cache is scoped per document: the same question against different documents (or none) misses independently", async () => {
+    const question = `federated learning summary ${randomUUID()}`;
+    const [sourceA] = await db!
+      .insert(sources)
+      .values({ title: "Doc A" })
+      .returning({ id: sources.id });
+    const [sourceB] = await db!
+      .insert(sources)
+      .values({ title: "Doc B" })
+      .returning({ id: sources.id });
+
+    expect(await getCachedResponse(question)).toBeNull();
+    expect(await getCachedResponse(question, sourceA.id)).toBeNull();
+    expect(await getCachedResponse(question, sourceB.id)).toBeNull();
+
+    await setCachedResponse(
+      question,
+      { component: "Quiz", props: { question: "About Doc A?", choices: [{ id: "a", label: "Yes" }], correctChoiceId: "a", explanation: "." } },
+      sourceA.id,
+    );
+
+    expect(await getCachedResponse(question, sourceA.id)).not.toBeNull();
+    expect(await getCachedResponse(question, sourceB.id)).toBeNull();
+    expect(await getCachedResponse(question)).toBeNull();
+  });
+
   it("recordProgress creates a session when none is given, and reuses it when the id is passed back", async () => {
     const sessionId = await recordProgress({
       question: "What is a quiz?",

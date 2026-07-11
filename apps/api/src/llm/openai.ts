@@ -83,10 +83,14 @@ function parseArguments(call: FunctionCall): unknown {
 export async function runOpenAIToolUseTurn(
   client: OpenAIChatClient,
   messages: ChatMessage[],
+  groundingContext?: string,
 ): Promise<A2uiPayload> {
+  const system = groundingContext
+    ? `${SYSTEM_PROMPT}\n\n${groundingContext}`
+    : SYSTEM_PROMPT;
   const openaiMessages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] =
     [
-      { role: "system", content: SYSTEM_PROMPT },
+      { role: "system", content: system },
       ...messages.map((m) => ({ role: m.role, content: m.content })),
     ];
 
