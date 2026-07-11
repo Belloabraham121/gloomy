@@ -28,3 +28,9 @@ pnpm-debug.log*
 
 # Test / coverage
 coverage/
+
+# OKX onchainos-skills toolkit (local, reinstallable via
+# `npx skills add okx/onchainos-skills` — see apps/api/README.md)
+.agents/
+.claude/skills/
+skills-lock.json

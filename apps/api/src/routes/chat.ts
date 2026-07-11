@@ -29,15 +29,22 @@ async function buildGroundingContext(
   const db = getDb();
   if (!db) return null;
 
-  const [source] = await db
-    .select({ title: sources.title })
-    .from(sources)
-    .where(eq(sources.id, documentId))
-    .limit(1);
-  if (!source) return null;
+  try {
+    const [source] = await db
+      .select({ title: sources.title })
+      .from(sources)
+      .where(eq(sources.id, documentId))
+      .limit(1);
+    if (!source) return null;
 
-  const relevantChunks = await retrieveChunks(documentId, question);
-  return formatGroundingContext(relevantChunks, source.title);
+    const relevantChunks = await retrieveChunks(documentId, question);
+    return formatGroundingContext(relevantChunks, source.title);
+  } catch (err) {
+    // A down database shouldn't fail the whole answer - fall back to
+    // ungrounded generation rather than crashing the request.
+    console.error("buildGroundingContext failed (ungrounded fallback):", err);
+    return null;
+  }
 }
 
 chatRouter.post("/", async (req, res) => {

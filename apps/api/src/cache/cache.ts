@@ -16,6 +16,11 @@ export function cacheKeyFor(question: string, documentId?: string): string {
     .digest("hex");
 }
 
+/**
+ * Best-effort read: a missing/unreachable database is treated as a cache
+ * miss (returns null), never a thrown error. A configured-but-down Postgres
+ * must not take out the chat endpoint on a public deploy.
+ */
 export async function getCachedResponse(
   question: string,
   documentId?: string,
@@ -23,19 +28,28 @@ export async function getCachedResponse(
   const db = getDb();
   if (!db) return null;
 
-  const key = cacheKeyFor(question, documentId);
-  const rows = await db
-    .select()
-    .from(cacheEntries)
-    .where(eq(cacheEntries.cacheKey, key))
-    .limit(1);
+  try {
+    const key = cacheKeyFor(question, documentId);
+    const rows = await db
+      .select()
+      .from(cacheEntries)
+      .where(eq(cacheEntries.cacheKey, key))
+      .limit(1);
 
-  const row = rows[0];
-  if (!row) return null;
+    const row = rows[0];
+    if (!row) return null;
 
-  return { component: row.component, props: row.props } as A2uiPayload;
+    return { component: row.component, props: row.props } as A2uiPayload;
+  } catch (err) {
+    console.error("getCachedResponse failed (treating as miss):", err);
+    return null;
+  }
 }
 
+/**
+ * Best-effort write: a failed cache write is logged and swallowed - caching
+ * is an optimization, never a hard dependency of the response.
+ */
 export async function setCachedResponse(
   question: string,
   payload: A2uiPayload,
@@ -44,16 +58,20 @@ export async function setCachedResponse(
   const db = getDb();
   if (!db) return;
 
-  const key = cacheKeyFor(question, documentId);
-  await db
-    .insert(cacheEntries)
-    .values({
-      cacheKey: key,
-      component: payload.component,
-      props: payload.props,
-    })
-    .onConflictDoUpdate({
-      target: cacheEntries.cacheKey,
-      set: { component: payload.component, props: payload.props },
-    });
+  try {
+    const key = cacheKeyFor(question, documentId);
+    await db
+      .insert(cacheEntries)
+      .values({
+        cacheKey: key,
+        component: payload.component,
+        props: payload.props,
+      })
+      .onConflictDoUpdate({
+        target: cacheEntries.cacheKey,
+        set: { component: payload.component, props: payload.props },
+      });
+  } catch (err) {
+    console.error("setCachedResponse failed (ignored):", err);
+  }
 }
