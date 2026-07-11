@@ -149,6 +149,77 @@ code {
   background: var(--accent-soft);
 }
 
+.shell-nav-toggle {
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+}
+
+.shell-nav-toggle span {
+  display: block;
+  width: 16px;
+  height: 2px;
+  margin: 0 auto;
+  background: var(--text);
+  border-radius: 2px;
+  transition: transform 160ms ease, opacity 160ms ease;
+}
+
+.shell-nav-toggle.open span:nth-child(1) {
+  transform: translateY(6px) rotate(45deg);
+}
+
+.shell-nav-toggle.open span:nth-child(2) {
+  opacity: 0;
+}
+
+.shell-nav-toggle.open span:nth-child(3) {
+  transform: translateY(-6px) rotate(-45deg);
+}
+
+@media (max-width: 760px) {
+  .shell-nav-toggle {
+    display: flex;
+  }
+
+  .shell-nav {
+    position: absolute;
+    top: calc(100% + 10px);
+    right: 0;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.15rem;
+    min-width: 180px;
+    padding: 0.5rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-card);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-6px);
+    transition: opacity 140ms ease, transform 140ms ease, visibility 140ms;
+  }
+
+  .shell-nav.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+  }
+
+  .shell-nav a {
+    padding: 0.6rem 0.8rem;
+  }
+}
+
 main {
   max-width: 680px;
   margin: 0 auto;
@@ -317,6 +388,7 @@ h1.hero-title {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-card);
+  min-width: 0;
 }
 
 .a2ui-canvas-card-question {
@@ -776,6 +848,7 @@ main.a2ui-gallery {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  min-width: 0;
 }
 
 .a2ui-gallery-item > .a2ui-card {
@@ -836,7 +909,8 @@ main.a2ui-gallery {
    body:has(). Serif accents use --font-serif (Instrument Serif).
 -------------------------------------------------------------------------- */
 
-main.lv3 {
+main.lv3,
+.lv3-theme {
   --sky-ink: #22303f;
   --sky-soft: #51606f;
   --sky-faint: #7b8794;
@@ -852,21 +926,50 @@ main.lv3 {
   --serif: var(--font-serif, Georgia, serif);
   --sans: var(--font-display, var(--font-sans));
 
+  /* Remap the original dark-theme token names to light values so every
+     existing a2ui/status/shell-header rule re-themes automatically
+     wherever this class wraps them - no need to rewrite those rules. */
+  --bg: #eaf4fb;
+  --surface: #fff;
+  --surface-2: var(--paper-2);
+  --surface-3: #eef0e8;
+  --border: var(--paper-line);
+  --border-strong: #c3c7bd;
+  --text: var(--sky-ink);
+  --text-dim: var(--sky-soft);
+  --text-faint: var(--sky-faint);
+  --accent: var(--leaf-deep);
+  --accent-strong: #27bd5e;
+  --accent-soft: rgba(31, 174, 83, 0.12);
+  --accent-gradient: linear-gradient(180deg, #27bd5e, var(--leaf-deep));
+  --ok: var(--leaf-deep);
+  --ok-soft: #e4f6ea;
+  --err: #d1495b;
+  --err-soft: #fdeae8;
+  --warn: var(--peach-ink);
+  --warn-soft: var(--peach-bg);
+  --shadow-card: 0 1px 2px rgba(34, 48, 63, 0.05), 0 8px 24px rgba(34, 48, 63, 0.08);
+
+  font-family: var(--sans);
+  color: var(--sky-ink);
+}
+
+main.lv3 {
   max-width: none;
   margin: 0;
   padding: 0;
-  font-family: var(--sans);
-  color: var(--sky-ink);
   overflow-x: clip;
   position: relative;
 }
 
-body:has(main.lv3) {
+body:has(main.lv3),
+body:has(.lv3-theme) {
   background: #eaf4fb;
 }
 
 /* shared header becomes a centered floating pill */
-body:has(main.lv3) .shell-header {
+body:has(main.lv3) .shell-header,
+body:has(.lv3-theme) .shell-header {
   position: fixed;
   top: 16px;
   left: 50%;
@@ -881,25 +984,55 @@ body:has(main.lv3) .shell-header {
   backdrop-filter: blur(10px);
 }
 
-body:has(main.lv3) .shell-header .logo-word {
+body:has(main.lv3) .shell-header .logo-word,
+body:has(.lv3-theme) .shell-header .logo-word {
   background: none;
   -webkit-background-clip: unset;
   background-clip: unset;
   color: #22303f;
 }
 
-body:has(main.lv3) .shell-nav a {
+body:has(main.lv3) .shell-nav a,
+body:has(.lv3-theme) .shell-nav a {
   color: #51606f;
 }
 
-body:has(main.lv3) .shell-nav a:hover {
+body:has(main.lv3) .shell-nav a:hover,
+body:has(.lv3-theme) .shell-nav a:hover {
   color: #22303f;
   background: #eef1f4;
 }
 
-body:has(main.lv3) .shell-nav a[aria-current="page"] {
+body:has(main.lv3) .shell-nav a[aria-current="page"],
+body:has(.lv3-theme) .shell-nav a[aria-current="page"] {
   color: #fff;
   background: #22303f;
+}
+
+@media (max-width: 760px) {
+  body:has(main.lv3) .shell-header,
+  body:has(.lv3-theme) .shell-header {
+    left: 1rem;
+    right: 1rem;
+    width: auto;
+    transform: none;
+    justify-content: space-between;
+  }
+
+  body:has(main.lv3) .shell-nav,
+  body:has(.lv3-theme) .shell-nav {
+    background: #fff;
+  }
+
+  body:has(main.lv3) .shell-nav-toggle,
+  body:has(.lv3-theme) .shell-nav-toggle {
+    border-color: rgba(34, 48, 63, 0.16);
+  }
+
+  body:has(main.lv3) .shell-nav-toggle span,
+  body:has(.lv3-theme) .shell-nav-toggle span {
+    background: #22303f;
+  }
 }
 
 /* ---- the scene ---- */
@@ -1702,6 +1835,47 @@ body:has(main.lv3) .shell-nav a[aria-current="page"] {
 
 .lv3-pipe-arrowhead {
   fill: var(--leaf);
+}
+
+/* ---- scenario reveal: thinking -> generated view ---- */
+
+.lv3-scenario-section {
+  padding: 3.5rem 0 1rem;
+}
+
+.lv3-scenarios {
+  max-width: 780px;
+  margin: 2.5rem auto 0;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2.4rem;
+}
+
+.lv3-scenario-prompt {
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 650;
+  color: var(--sky-ink);
+}
+
+.lv3-scenario-thinking,
+.lv3-scenario-result {
+  margin-top: 0;
+}
+
+.lv3-scenario-3d {
+  height: 320px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: radial-gradient(60rem 32rem at 50% -12rem, rgba(122, 99, 240, 0.14), transparent 65%),
+    #0b0b10;
+}
+
+@media (max-width: 640px) {
+  .lv3-scenario-3d {
+    height: 260px;
+  }
 }
 
 .lv3-cards,

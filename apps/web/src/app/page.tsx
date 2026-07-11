@@ -8,6 +8,7 @@ import { useGSAP } from "@gsap/react";
 import { ComponentShowcase } from "@/components/landing/ComponentShowcase";
 import { LandingDashboard } from "@/components/landing/LandingDashboard";
 import { PipelineDiagram } from "@/components/landing/PipelineDiagram";
+import { ScenarioReveal } from "@/components/landing/ScenarioReveal";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -161,6 +162,31 @@ export default function LandingPage() {
             }
           });
         }
+
+        // scenario reveal: prompt rises in, a "thinking" state shows
+        // briefly, then fades out as the generated view pops in
+        gsap.utils.toArray<HTMLElement>(".lv3-scenario").forEach((scenario) => {
+          const prompt = scenario.querySelector(".lv3-scenario-prompt");
+          const thinking = scenario.querySelector(".lv3-scenario-thinking");
+          const result = scenario.querySelector(".lv3-scenario-result");
+          if (!prompt || !thinking || !result) return;
+
+          gsap.set(result, { autoAlpha: 0 });
+
+          const scenarioTl = gsap.timeline({
+            scrollTrigger: { trigger: scenario, start: "top 75%", once: true },
+          });
+          scenarioTl
+            .from(prompt, { y: 20, autoAlpha: 0, duration: 0.6, ease: "power3.out" })
+            .from(thinking, { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, "+=0.1")
+            .to(thinking, { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, "+=0.7")
+            .fromTo(
+              result,
+              { autoAlpha: 0, y: 16, scale: 0.98 },
+              { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(1.4)" },
+              "<",
+            );
+        });
       });
 
       // horizontal-scroll pin for the component showcase - desktop only,
@@ -298,6 +324,7 @@ export default function LandingPage() {
 
         <ComponentShowcase />
         <PipelineDiagram />
+        <ScenarioReveal />
 
         <section className="lv3-section">
           <p className="lv3-eyebrow lv3-reveal">How to use it</p>

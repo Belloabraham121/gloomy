@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { ShellHeader } from "@/components/ShellHeader";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -8,10 +9,8 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#0b0b10",
+  themeColor: "#eaf4fb",
 };
-
-const WEB_URL = process.env.NEXT_PUBLIC_WEB_URL ?? "http://localhost:3000";
 
 export default function RootLayout({
   children,
@@ -19,19 +18,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <header className="shell-header">
-          <a href={WEB_URL} className="shell-wordmark">
-            <i aria-hidden />
-            gloomy
-          </a>
-          <nav className="shell-nav" aria-label="Primary">
-            <a href={WEB_URL}>Chat</a>
-            <a href={`${WEB_URL}/gallery`}>Gallery</a>
-            <a href="/" aria-current="page">
-              3D Lab
-            </a>
-          </nav>
-        </header>
+        <ShellHeader />
         {children}
       </body>
     </html>

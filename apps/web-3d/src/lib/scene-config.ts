@@ -1,4 +1,4 @@
-export const SCENE_PRESETS = ["waveField", "orbitals", "torusKnot"] as const;
+export const SCENE_PRESETS = ["waveField", "orbitals", "torusKnot", "agents"] as const;
 export type ScenePreset = (typeof SCENE_PRESETS)[number];
 
 export interface SceneConfig {
@@ -53,4 +53,5 @@ export const PRESET_LABELS: Record<ScenePreset, string> = {
   waveField: "Wave field",
   orbitals: "Orbitals",
   torusKnot: "Torus knot",
+  agents: "Agents",
 };

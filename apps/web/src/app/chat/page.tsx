@@ -95,7 +95,7 @@ export default function Home() {
   }
 
   return (
-    <main>
+    <main className="lv3-theme">
       <p className="hero-eyebrow">Generative learning canvas</p>
       <h1 className="hero-title">
         Ask anything. <em>Watch it build.</em>
@@ -200,7 +200,7 @@ export default function Home() {
             )}
 
             {entry.status === "success" && entry.response && (
-              <div className="a2ui-chat-result">
+              <div className="a2ui-chat-result lv3-stage">
                 {entry.response.cached && (
                   <p className="a2ui-chat-cached-note">Served from cache</p>
                 )}

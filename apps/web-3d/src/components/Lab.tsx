@@ -35,19 +35,19 @@ function LabInner({ hasLlmKey }: { hasLlmKey: boolean }) {
 
   useCopilotReadable({
     description:
-      "The current 3D scene configuration the user is looking at. preset is one of waveField|orbitals|torusKnot; hue is 0-360; speed is 0.1-3; density is 6-24.",
+      "The current 3D scene configuration the user is looking at. preset is one of waveField|orbitals|torusKnot|agents; hue is 0-360; speed is 0.1-3; density is 6-24.",
     value: config,
   });
 
   useCopilotAction({
     name: "configure_scene",
     description:
-      "Reconfigure the live 3D scene the user is looking at. Use it whenever the user asks to change what is shown, its color, speed, or complexity. preset must be one of: waveField (an animated grid of columns, good for wave/field/signal concepts), orbitals (bodies orbiting a glowing center, good for orbital/atomic/planetary concepts), torusKnot (a continuous knotted loop, good for topology/geometry concepts).",
+      "Reconfigure the live 3D scene the user is looking at. Use it whenever the user asks to change what is shown, its color, speed, or complexity. preset must be one of: waveField (an animated grid of columns, good for wave/field/signal concepts), orbitals (bodies orbiting a glowing center, good for orbital/atomic/planetary concepts), torusKnot (a continuous knotted loop, good for topology/geometry concepts), agents (nodes connected by lines with pulses traveling between them, good for multi-agent/collaboration/network concepts).",
     parameters: [
       {
         name: "preset",
         type: "string",
-        description: "One of: waveField, orbitals, torusKnot",
+        description: "One of: waveField, orbitals, torusKnot, agents",
         required: false,
       },
       {

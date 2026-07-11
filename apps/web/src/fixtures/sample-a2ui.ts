@@ -86,6 +86,46 @@ export const sampleChart: ChartProps = {
   ],
 };
 
+export const stemCellDiagram: DiagramProps = {
+  title: "How a stem cell differentiates",
+  nodes: [
+    { id: "stem", label: "Stem cell", description: "Unspecialized, self-renewing" },
+    { id: "signal", label: "Signal", description: "Chemical cue from nearby tissue" },
+    { id: "neuron", label: "Neuron", description: "Specialized for signaling" },
+    { id: "muscle", label: "Muscle cell", description: "Specialized for contraction" },
+    { id: "blood", label: "Blood cell", description: "Specialized for oxygen transport" },
+  ],
+  edges: [
+    { from: "stem", to: "signal", label: "receives" },
+    { from: "signal", to: "neuron", label: "differentiates into" },
+    { from: "signal", to: "muscle", label: "differentiates into" },
+    { from: "signal", to: "blood", label: "differentiates into" },
+  ],
+};
+
+export const blockchainStepThrough: StepThroughProps = {
+  title: "How a block gets added to the chain",
+  steps: [
+    {
+      heading: "1. A transaction is broadcast",
+      body: "A signed transaction is sent to the network and picked up by nodes.",
+    },
+    {
+      heading: "2. It waits in the mempool",
+      body: "Pending transactions sit in each node's mempool until a validator picks them up.",
+    },
+    {
+      heading: "3. Validators build a block",
+      body: "A validator bundles pending transactions into a candidate block and proposes it.",
+      highlight: "Only one proposed block per round is accepted by the network.",
+    },
+    {
+      heading: "4. The block is appended",
+      body: "Once enough nodes agree it's valid, the block is appended to the chain and the transaction is final.",
+    },
+  ],
+};
+
 export const sampleFormulaStepper: FormulaStepperProps = {
   title: "Deriving the circle area formula",
   terms: [
