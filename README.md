@@ -14,8 +14,8 @@ of chat text, grounded in real sources instead of the model's raw memory.
 | 3D / simulation generative UI | Copilot generative UI ([CopilotKit](https://www.copilotkit.ai/)) + react-three-fiber | `apps/web-3d`: the copilot reconfigures a live WebGL scene from natural language; a manual panel drives the same state so it works with no API keys. |
 | Backend | Node.js + TypeScript + Express | One language across backend and both frontends. |
 | Models | Claude (Anthropic) **and** OpenAI, tool-use / function calling | One handler per provider behind a single interface (`apps/api/src/llm/`); `LLM_PROVIDER` env picks, Anthropic preferred when both keys are set. Either way the response is validated against the same Zod schema before it's trusted. |
-| Database | Postgres + pgvector, via Drizzle | Cache + progress tracking today; the same database will hold RAG source embeddings once step 4 starts. One database instead of three separate services (vector DB + cache store + relational DB) — see `docs/architecture.md`. |
-| Grounding | RAG over a real source corpus | Not started (build order step 4) — needs an actual source corpus, which is a curation task, not just code. |
+| Database | Postgres + pgvector, via Drizzle | Cache + progress tracking, and now RAG source/chunk embeddings. One database instead of three separate services (vector DB + cache store + relational DB) — see `docs/architecture.md`. |
+| Grounding | RAG over user-uploaded PDFs | `POST /api/documents` ingests a PDF (extract → chunk → embed via OpenAI `text-embedding-3-small`), `POST /api/chat` grounds generation in it when a `documentId` is passed. Needs `OPENAI_API_KEY` for embeddings regardless of which provider generates the UI — Anthropic has no embeddings API. |
 | Package management | pnpm workspaces | Single monorepo, shared types between backend and frontend via `packages/a2ui-spec`. |
 
 **Divergence from OpenUI's default transport:** OpenUI's `Renderer`/Lang DSL
@@ -36,17 +36,17 @@ runtime, while still defining everything as a proper OpenUI
 │  (Next.js + │◄──────►│  Node.js + TS             │◄──────►│  - or -      │
 │  OpenUI)    │  JSON  │  - src/llm: Anthropic +    │        │ OpenAI API   │
 │             │        │    OpenAI handlers          │        └──────────────┘
-│  Diagram    │        │  - A2UI component tools    │
-│  StepThrough│        │  - Cache + progress         │        ┌──────────────┐
-│  Quiz       │        │  - RAG retriever (planned)  │◄──────►│  Postgres +  │
-│  Simulation │        │                              │        │  pgvector    │
-│  Chart      │        └──────────────────────────┘        └──────────────┘
-│  FormulaStep│
-└─────────────┘        ┌─────────────┐  Copilot generative UI: the model
-                        │ apps/web-3d │  reconfigures a live 3D scene
-                        │ (CopilotKit │  (wave field / orbitals / torus
-                        │  + r3f)     │  knot) via its own /api/copilotkit
-                        └─────────────┘  runtime (Anthropic or OpenAI).
+│  stacking   │        │  - A2UI component tools    │
+│  canvas +   │        │  - Cache + progress         │        ┌──────────────┐
+│  PDF upload │        │  - rag/: ingest + retrieve  │◄──────►│  Postgres +  │
+│             │        │    (grounds /api/chat)      │        │  pgvector    │
+│  Diagram    │        └──────────────────────────┘        └──────────────┘
+│  StepThrough│
+│  Quiz       │        ┌─────────────┐  Copilot generative UI: the model
+│  Simulation │        │ apps/web-3d │  reconfigures a live 3D scene
+│  Chart      │        │ (CopilotKit │  (wave field / orbitals / torus
+│  FormulaStep│        │  + r3f)     │  knot) via its own /api/copilotkit
+└─────────────┘        └─────────────┘  runtime (Anthropic or OpenAI).
 ```
 
 `packages/a2ui-spec` is the single source of truth for each component's prop
@@ -82,7 +82,7 @@ the frontend knows how to render. All 6 are implemented (see
 - [x] 1. Scaffold `apps/web` (OpenUI) + `apps/api` (backend) skeleton, confirm they talk to each other.
 - [x] 2. Build the A2UI components with hardcoded data — no LLM yet. Confirmed rendering on desktop and iPad-width viewports (real headless-browser checks, not just eyeballing).
 - [x] 3. Wire LLM tool-use to populate components dynamically — both a Claude handler and an OpenAI handler behind one interface (`apps/api/src/llm/`). *(Code paths are real and tested against mocked clients + real HTTP checks; never exercised against live models — no API keys were available while building. Add `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` to `apps/api/.env` to actually try it.)*
-- [ ] 4. Add RAG grounding so content generation pulls from real sources instead of the model's raw knowledge. Not started — `sources`/`chunks` tables exist (pgvector-ready) but nothing ingests into them.
+- [x] 4. Add RAG grounding so content generation pulls from real sources instead of the model's raw knowledge. `POST /api/documents` ingests a PDF (`apps/api/src/rag/`: extract → chunk → embed → store); `POST /api/chat` retrieves the top-k chunks for a `documentId` and grounds the tool-use turn in them; the cache key folds in the document so grounded and ungrounded answers to the same question never collide. `apps/web`'s `/chat` page is a stacking canvas — each question appends a card instead of replacing the last one, and an upload control lets you ground the whole conversation in a PDF. Image/CSV ingestion and the React Native app are deliberately deferred past the hackathon.
 - [x] 5. Expand the component catalog (Simulation, Chart, FormulaStepper) — built alongside the first 3 in step 2, since it was pure schema/rendering work with no dependency on the core loop being validated first.
 - [x] 6. Add caching + basic progress tracking. Real Postgres cache (hit skips Claude entirely, verified working with zero Claude credentials) + progress rows per response.
 - [ ] 7. Once the web version feels solid, revisit whether a native shell (e.g. wrapping `apps/web` for iPad) is worth it.
@@ -95,6 +95,8 @@ pnpm install   # from repo root — installs everything, builds packages/a2ui-sp
 # apps/api — terminal 1
 cd apps/api
 cp .env.example .env          # fill in ANTHROPIC_API_KEY and/or OPENAI_API_KEY, plus DATABASE_URL for cache/progress
+                                # OPENAI_API_KEY is also required for document upload/grounding
+                                # (embeddings), even if you're generating with LLM_PROVIDER=anthropic
 pnpm run db:migrate             # applies src/db/migrations/ — needs a Postgres with `CREATE EXTENSION vector;` available
 pnpm dev                         # http://localhost:4000
 
@@ -114,6 +116,13 @@ you'll get a clear "no LLM provider configured" message rather than a
 crash — everything else (the UI, the cache path, `/gallery`, the entire 3D
 lab minus its chat) works without keys. `/gallery` shows all 6 components
 with hardcoded data, independent of whether `apps/api` is even running.
+
+`/chat` is a stacking canvas: every question appends a new card below the
+last instead of replacing it, so the page visibly builds into a lesson.
+Upload a PDF first (the control above the prompt bar) to ground every
+subsequent question in it — a "grounded in: &lt;filename&gt;" chip shows
+while it's active, and it needs `OPENAI_API_KEY` set on `apps/api` for
+embeddings.
 
 ### Testing
 

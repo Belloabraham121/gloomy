@@ -1,8 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { A2uiRenderer } from "@/components/A2uiRenderer";
-import { askQuestion, ChatApiError, type ChatResponse } from "@/lib/api";
+import {
+  askQuestion,
+  ChatApiError,
+  uploadDocument,
+  type ChatResponse,
+} from "@/lib/api";
 import { getStoredSessionId, storeSessionId } from "@/lib/session";
 
 const SUGGESTED_QUESTIONS = [
@@ -11,47 +16,131 @@ const SUGGESTED_QUESTIONS = [
   "Quiz me on the difference between A2A and A2MCP.",
 ];
 
-type State =
+interface CanvasEntry {
+  id: string;
+  question: string;
+  status: "loading" | "success" | "error";
+  response?: ChatResponse;
+  errorStatus?: number;
+  errorMessage?: string;
+}
+
+type DocumentState =
   | { kind: "idle" }
-  | { kind: "loading" }
-  | { kind: "success"; response: ChatResponse }
-  | { kind: "error"; status: number; message: string };
+  | { kind: "uploading"; fileName: string }
+  | { kind: "ready"; sourceId: string; title: string; chunkCount: number }
+  | { kind: "error"; message: string };
+
+function newEntryId(): string {
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
 
 export default function Home() {
   const [question, setQuestion] = useState("");
-  const [state, setState] = useState<State>({ kind: "idle" });
+  const [entries, setEntries] = useState<CanvasEntry[]>([]);
+  const [document, setDocument] = useState<DocumentState>({ kind: "idle" });
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const busy = entries.some((e) => e.status === "loading");
 
   async function submit(q: string) {
-    if (!q.trim() || state.kind === "loading") return;
-    setState({ kind: "loading" });
+    if (!q.trim() || busy) return;
+    setQuestion("");
+    const id = newEntryId();
+    setEntries((prev) => [...prev, { id, question: q, status: "loading" }]);
+
+    const documentId = document.kind === "ready" ? document.sourceId : undefined;
+
     try {
-      const response = await askQuestion(q, getStoredSessionId());
+      const response = await askQuestion(q, getStoredSessionId(), documentId);
       if (response.sessionId) storeSessionId(response.sessionId);
-      setState({ kind: "success", response });
+      setEntries((prev) =>
+        prev.map((e) => (e.id === id ? { ...e, status: "success", response } : e)),
+      );
     } catch (err) {
-      if (err instanceof ChatApiError) {
-        setState({ kind: "error", status: err.status, message: err.message });
-      } else {
-        setState({
-          kind: "error",
-          status: 0,
-          message: (err as Error).message,
-        });
-      }
+      const errorStatus = err instanceof ChatApiError ? err.status : 0;
+      const errorMessage = (err as Error).message;
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === id ? { ...e, status: "error", errorStatus, errorMessage } : e,
+        ),
+      );
+    }
+  }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+
+    if (file.type !== "application/pdf") {
+      setDocument({ kind: "error", message: "Only PDF files are supported right now." });
+      return;
+    }
+
+    setDocument({ kind: "uploading", fileName: file.name });
+    try {
+      const result = await uploadDocument(file, getStoredSessionId());
+      setDocument({
+        kind: "ready",
+        sourceId: result.sourceId,
+        title: result.title,
+        chunkCount: result.chunkCount,
+      });
+    } catch (err) {
+      const message =
+        err instanceof ChatApiError ? err.message : (err as Error).message;
+      setDocument({ kind: "error", message });
     }
   }
 
   return (
     <main>
-      <p className="hero-eyebrow">Generative learning UI</p>
+      <p className="hero-eyebrow">Generative learning canvas</p>
       <h1 className="hero-title">
-        Ask anything. <em>See the answer.</em>
+        Ask anything. <em>Watch it build.</em>
       </h1>
       <p className="hero-sub">
-        One question in, one interactive component out — a diagram, a
-        step-through, a quiz, a live simulation — instead of a wall of chat
-        text.
+        Every question adds a new interactive component to the canvas below —
+        upload a PDF first to ground the whole conversation in it.
       </p>
+
+      <div className="a2ui-upload-row">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+          className="a2ui-upload-input"
+          aria-label="Upload a PDF to ground the canvas"
+        />
+        <button
+          type="button"
+          className="a2ui-button"
+          onClick={() => fileInputRef.current?.click()}
+          disabled={document.kind === "uploading"}
+        >
+          {document.kind === "uploading" ? "Uploading…" : "Upload a PDF"}
+        </button>
+
+        {document.kind === "ready" && (
+          <span className="a2ui-doc-chip">
+            Grounded in: {document.title}
+            <button
+              type="button"
+              className="a2ui-doc-chip-clear"
+              onClick={() => setDocument({ kind: "idle" })}
+              aria-label="Clear grounding document"
+            >
+              &times;
+            </button>
+          </span>
+        )}
+
+        {document.kind === "error" && (
+          <span className="a2ui-doc-error">{document.message}</span>
+        )}
+      </div>
 
       <form
         onSubmit={(e) => {
@@ -68,11 +157,7 @@ export default function Home() {
           className="a2ui-chat-input"
           aria-label="Your question"
         />
-        <button
-          type="submit"
-          className="a2ui-button primary"
-          disabled={state.kind === "loading"}
-        >
+        <button type="submit" className="a2ui-button primary" disabled={busy}>
           Ask
         </button>
       </form>
@@ -83,39 +168,48 @@ export default function Home() {
             key={q}
             type="button"
             className="a2ui-button"
-            onClick={() => {
-              setQuestion(q);
-              submit(q);
-            }}
+            onClick={() => submit(q)}
+            disabled={busy}
           >
             {q}
           </button>
         ))}
       </div>
 
-      {state.kind === "loading" && (
-        <div className="status loading">Thinking about the best way to show this&hellip;</div>
-      )}
+      <div className="a2ui-canvas-stack">
+        {entries.map((entry) => (
+          <section key={entry.id} className="a2ui-canvas-card">
+            <p className="a2ui-canvas-card-question">{entry.question}</p>
 
-      {state.kind === "error" && state.status === 501 && (
-        <div className="status error">
-          No LLM provider is configured on apps/api yet: {state.message}
-        </div>
-      )}
-      {state.kind === "error" && state.status !== 501 && (
-        <div className="status error">
-          Request failed ({state.status || "network error"}): {state.message}
-        </div>
-      )}
+            {entry.status === "loading" && (
+              <div className="status loading">
+                Thinking about the best way to show this&hellip;
+              </div>
+            )}
 
-      {state.kind === "success" && (
-        <div className="a2ui-chat-result">
-          {state.response.cached && (
-            <p className="a2ui-chat-cached-note">Served from cache</p>
-          )}
-          <A2uiRenderer payload={state.response} />
-        </div>
-      )}
+            {entry.status === "error" && entry.errorStatus === 501 && (
+              <div className="status error">
+                No LLM provider is configured on apps/api yet: {entry.errorMessage}
+              </div>
+            )}
+            {entry.status === "error" && entry.errorStatus !== 501 && (
+              <div className="status error">
+                Request failed ({entry.errorStatus || "network error"}):{" "}
+                {entry.errorMessage}
+              </div>
+            )}
+
+            {entry.status === "success" && entry.response && (
+              <div className="a2ui-chat-result">
+                {entry.response.cached && (
+                  <p className="a2ui-chat-cached-note">Served from cache</p>
+                )}
+                <A2uiRenderer payload={entry.response} />
+              </div>
+            )}
+          </section>
+        ))}
+      </div>
 
       <p className="a2ui-chat-gallery-link">
         Browse the full component catalog with sample data in the{" "}

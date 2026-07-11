@@ -23,6 +23,7 @@ export class ChatApiError extends Error {
 export async function askQuestion(
   question: string,
   sessionId: string | null,
+  documentId?: string,
 ): Promise<ChatResponse> {
   const res = await fetch(`${API_URL}/api/chat`, {
     method: "POST",
@@ -30,6 +31,7 @@ export async function askQuestion(
     body: JSON.stringify({
       threadId: "web-chat",
       sessionId: sessionId ?? undefined,
+      documentId,
       messages: [{ role: "user", content: question }],
     }),
   });
@@ -44,4 +46,36 @@ export async function askQuestion(
   }
 
   return body as ChatResponse;
+}
+
+export interface DocumentUploadResponse {
+  sourceId: string;
+  title: string;
+  chunkCount: number;
+}
+
+export async function uploadDocument(
+  file: File,
+  sessionId: string | null,
+): Promise<DocumentUploadResponse> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("title", file.name);
+  if (sessionId) formData.append("sessionId", sessionId);
+
+  const res = await fetch(`${API_URL}/api/documents`, {
+    method: "POST",
+    body: formData,
+  });
+
+  const body = await res.json();
+
+  if (!res.ok) {
+    throw new ChatApiError(
+      res.status,
+      body.error ?? `apps/api responded with ${res.status}`,
+    );
+  }
+
+  return body as DocumentUploadResponse;
 }

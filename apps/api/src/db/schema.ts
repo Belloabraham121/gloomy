@@ -55,14 +55,22 @@ export const progressEntries = pgTable(
 );
 
 /**
- * RAG tables (build order step 4) - schema only for now, no ingestion
- * pipeline yet. Embedding dimension matches OpenAI/Voyage-class
- * 1536-dim models; revisit if step 4 picks a different embedding model.
+ * RAG tables (build order step 4). Embedding dimension matches
+ * OpenAI/Voyage-class 1536-dim models; revisit if step 4 picks a different
+ * embedding model.
+ *
+ * sessionId scopes a document to the canvas that uploaded it (nullable -
+ * ingestion can run before a session exists yet, same as progress_entries).
+ * status tracks ingestion so the frontend can show upload progress.
  */
 export const sources = pgTable("sources", {
   id: uuid("id").primaryKey().defaultRandom(),
   title: text("title").notNull(),
   url: text("url"),
+  sessionId: uuid("session_id").references(() => sessions.id, {
+    onDelete: "cascade",
+  }),
+  status: text("status").notNull().default("ready"),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
