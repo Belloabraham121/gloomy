@@ -137,6 +137,30 @@ with it built in: [Supabase](https://supabase.com) or
 [Neon](https://neon.tech). Locally, `CREATE EXTENSION vector;` needs
 `postgresql-<version>-pgvector` (or equivalent) installed.
 
+### Deploying (Coolify / Docker)
+
+Each app has its own `Dockerfile` (`apps/api/Dockerfile`,
+`apps/web/Dockerfile`, `apps/web-3d/Dockerfile`) — this is a pnpm-workspace
+monorepo, not a single deployable unit, so it needs one Coolify application
+per service, all pointed at the same git repo:
+
+- **Docker Build Context**: repo root (`/`) — required so the Dockerfile can
+  see `pnpm-workspace.yaml`, `pnpm-lock.yaml`, and `packages/a2ui-spec`.
+- **Dockerfile Location**: `apps/api/Dockerfile` / `apps/web/Dockerfile` /
+  `apps/web-3d/Dockerfile` respectively.
+- **Build pack**: Dockerfile (not Nixpacks) — the repo root `package.json`
+  has no `scripts`, since there's no single build/start for a 3-app
+  monorepo, so buildpack auto-detection can't work and will fail.
+- **Ports**: `apps/api` listens on `4000` (or `$PORT` if set), `apps/web` on
+  `3000`, `apps/web-3d` on `3002` — set each app's exposed port in Coolify
+  to match.
+- **Env vars**: same as the `.env`/`.env.local` files above, set directly in
+  Coolify per service (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`,
+  `DATABASE_URL`, etc. on `apps/api`). `apps/web` additionally needs
+  `NEXT_PUBLIC_API_URL` as a **build arg** (not just a runtime env var) set
+  to `apps/api`'s public URL, since Next.js inlines `NEXT_PUBLIC_*` vars
+  into the client bundle at build time.
+
 ## Docs
 
 - [`docs/architecture.md`](docs/architecture.md) — data flow, and the real
