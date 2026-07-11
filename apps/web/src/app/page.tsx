@@ -7,8 +7,8 @@ import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
 import { ComponentShowcase } from "@/components/landing/ComponentShowcase";
 import { LandingDashboard } from "@/components/landing/LandingDashboard";
-import { PipelineDiagram } from "@/components/landing/PipelineDiagram";
-import { ScenarioReveal } from "@/components/landing/ScenarioReveal";
+import { PaperStory } from "@/components/landing/PaperStory";
+import { ScenarioTheater } from "@/components/landing/ScenarioTheater";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -120,8 +120,7 @@ export default function LandingPage() {
           scrollTrigger: { trigger: ".lv3-usage", start: "top 88%", once: true },
         });
 
-        // component showcase icons wobble forever once settled, on every
-        // width - the entrance pop itself is width-specific, set up below
+        // component showcase icons wobble forever once settled
         gsap.utils.toArray<HTMLElement>(".lv3-showcase-icon").forEach((icon, i) => {
           gsap.to(icon, {
             rotate: i % 2 === 0 ? 10 : -10,
@@ -132,75 +131,13 @@ export default function LandingPage() {
           });
         });
 
-        // pipeline diagram: nodes pop, connecting lines draw in sequence
-        const pipeEdges = gsap.utils.toArray<SVGPathElement>(".lv3-pipe-edge");
-        pipeEdges.forEach((path) => {
-          const length = path.getTotalLength();
-          gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
-        });
-        const pipeNodes = gsap.utils.toArray<SVGGElement>(".lv3-pipe-node");
-        if (pipeNodes.length > 0) {
-          const pipeTl = gsap.timeline({
-            scrollTrigger: {
-              trigger: ".lv3-pipe-section",
-              start: "top 80%",
-              once: true,
-            },
-          });
-          pipeNodes.forEach((node, i) => {
-            pipeTl.from(
-              node,
-              { scale: 0.6, autoAlpha: 0, duration: 0.45, ease: "back.out(2)" },
-              i === 0 ? 0 : "+=0.05",
-            );
-            if (pipeEdges[i]) {
-              pipeTl.to(
-                pipeEdges[i],
-                { strokeDashoffset: 0, duration: 0.5, ease: "power2.inOut" },
-                "<0.1",
-              );
-            }
-          });
-        }
-
-        // scenario reveal: prompt rises in, a "thinking" state shows
-        // briefly, then fades out as the generated view pops in
-        gsap.utils.toArray<HTMLElement>(".lv3-scenario").forEach((scenario) => {
-          const prompt = scenario.querySelector(".lv3-scenario-prompt");
-          const thinking = scenario.querySelector(".lv3-scenario-thinking");
-          const result = scenario.querySelector(".lv3-scenario-result");
-          if (!prompt || !thinking || !result) return;
-
-          gsap.set(result, { autoAlpha: 0 });
-
-          const scenarioTl = gsap.timeline({
-            scrollTrigger: { trigger: scenario, start: "top 75%", once: true },
-          });
-          scenarioTl
-            .from(prompt, { y: 20, autoAlpha: 0, duration: 0.6, ease: "power3.out" })
-            .from(thinking, { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, "+=0.1")
-            .to(thinking, { autoAlpha: 0, duration: 0.4, ease: "power2.out" }, "+=0.7")
-            .fromTo(
-              result,
-              { autoAlpha: 0, y: 16, scale: 0.98 },
-              { autoAlpha: 1, y: 0, scale: 1, duration: 0.55, ease: "back.out(1.4)" },
-              "<",
-            );
-        });
-      });
-
-      // horizontal-scroll pin for the component showcase - desktop only,
-      // a native swipeable strip takes over below 900px (see CSS)
-      mm.add(
-        "(min-width: 900px) and (prefers-reduced-motion: no-preference)",
-        () => {
-          const track = document.querySelector<HTMLElement>(".lv3-showcase-track");
-          const viewport = document.querySelector<HTMLElement>(
-            ".lv3-showcase-viewport",
-          );
-          if (!track || !viewport) return;
-
-          // cards pop in with a playful over-rotation as the section arrives
+        // component showcase: cards pop in, then the section pins and the
+        // track scrubs horizontally - on every width, mobile included
+        const track = document.querySelector<HTMLElement>(".lv3-showcase-track");
+        const viewport = document.querySelector<HTMLElement>(
+          ".lv3-showcase-viewport",
+        );
+        if (track && viewport) {
           gsap.from(".lv3-showcase-card", {
             scale: 0.7,
             rotate: () => gsap.utils.random(-10, 10),
@@ -225,24 +162,164 @@ export default function LandingPage() {
               invalidateOnRefresh: true,
             },
           });
-        },
-      );
+        }
 
-      mm.add(
-        "(max-width: 899.98px) and (prefers-reduced-motion: no-preference)",
-        () => {
-          // mobile gets a simpler, non-rotated reveal - no pin/scrub, cards
-          // are a native swipeable strip instead (see the CSS breakpoint)
-          gsap.from(".lv3-showcase-card", {
-            y: 30,
-            autoAlpha: 0,
-            duration: 0.6,
-            ease: "power3.out",
-            stagger: 0.1,
-            scrollTrigger: { trigger: ".lv3-showcase", start: "top 82%", once: true },
+        // paper story: pinned scrub through paper -> chunks -> store ->
+        // answer. CSS defaults show the final stage (for reduced-motion /
+        // no-JS); reset everything to stage 1 here before the pin starts.
+        const psStage = document.querySelector<HTMLElement>(".lv3-ps-stage");
+        if (psStage) {
+          const spark = document.querySelector<SVGPathElement>(".lv3-ps-spark-path");
+          if (spark) {
+            const sparkLen = spark.getTotalLength();
+            gsap.set(spark, { strokeDasharray: sparkLen, strokeDashoffset: sparkLen });
+          }
+          gsap.set(
+            ".lv3-ps-paper, .lv3-ps-chunks, .lv3-ps-store, .lv3-ps-question, .lv3-ps-answer, .lv3-ps-caption",
+            { autoAlpha: 0 },
+          );
+
+          const psTl = gsap.timeline({
+            scrollTrigger: {
+              trigger: ".lv3-paper-section",
+              start: "top top",
+              end: "+=2400",
+              pin: true,
+              scrub: 1,
+            },
           });
-        },
-      );
+
+          psTl
+            // stage 1: the paper
+            .to(".lv3-ps-caption.c1", { autoAlpha: 1, duration: 0.3 })
+            .fromTo(
+              ".lv3-ps-paper",
+              { y: 70, scale: 0.9 },
+              { autoAlpha: 1, y: 0, scale: 1, duration: 1 },
+              "<",
+            )
+            .to({}, { duration: 0.4 })
+            // stage 2: split into chunks
+            .to(".lv3-ps-caption.c1", { autoAlpha: 0, duration: 0.3 })
+            .to(".lv3-ps-caption.c2", { autoAlpha: 1, duration: 0.3 }, "<")
+            .to(".lv3-ps-paper", { scale: 0.8, autoAlpha: 0, duration: 0.7 }, "<")
+            .set(".lv3-ps-chunks", { autoAlpha: 1 }, "<0.2")
+            .fromTo(
+              ".lv3-ps-chunk",
+              { scale: 0.35, autoAlpha: 0, y: 30 },
+              {
+                scale: 1,
+                autoAlpha: 1,
+                y: 0,
+                duration: 0.6,
+                ease: "back.out(1.4)",
+                stagger: 0.1,
+              },
+              "<",
+            )
+            .to({}, { duration: 0.4 })
+            // stage 3: embedded + stored
+            .to(".lv3-ps-caption.c2", { autoAlpha: 0, duration: 0.3 })
+            .to(".lv3-ps-caption.c3", { autoAlpha: 1, duration: 0.3 }, "<")
+            .to(
+              ".lv3-ps-chunks",
+              { scale: 0.2, autoAlpha: 0, transformOrigin: "50% 45%", duration: 0.7 },
+              "<",
+            )
+            .fromTo(
+              ".lv3-ps-store",
+              { scale: 0.5, y: 20 },
+              { autoAlpha: 1, scale: 1, y: 0, duration: 0.6, ease: "back.out(1.5)" },
+              "<0.3",
+            )
+            .from(".lv3-ps-dot", { scale: 0, duration: 0.3, stagger: 0.015 }, "<0.2")
+            .to({}, { duration: 0.4 })
+            // stage 4: ask -> the grounded answer assembles
+            .to(".lv3-ps-caption.c3", { autoAlpha: 0, duration: 0.3 })
+            .to(".lv3-ps-caption.c4", { autoAlpha: 1, duration: 0.3 }, "<")
+            .fromTo(
+              ".lv3-ps-question",
+              { x: 60 },
+              { autoAlpha: 1, x: 0, duration: 0.5 },
+              "<",
+            )
+            .to(".lv3-ps-dot.hot", { scale: 1.5, duration: 0.3, stagger: 0.1 })
+            .fromTo(
+              ".lv3-ps-answer",
+              { y: 30, scale: 0.95 },
+              { autoAlpha: 1, y: 0, scale: 1, duration: 0.6, ease: "back.out(1.3)" },
+            )
+            .from(".lv3-ps-answer > span", { autoAlpha: 0, duration: 0.3, stagger: 0.08 }, "<0.2");
+          if (spark) {
+            psTl.to(spark, { strokeDashoffset: 0, duration: 0.6 });
+          }
+          psTl.to({}, { duration: 0.5 });
+        }
+
+        // scenario theater: laptop screen plays two question -> thinking ->
+        // answer beats, pinned + scrubbed. CSS shows scene 0 finished; reset
+        // each scene to "question only" first.
+        const laptop = document.querySelector<HTMLElement>(".lv3-laptop");
+        if (laptop) {
+          const scenes = gsap.utils.toArray<HTMLElement>(".lv3-theater-scene");
+          const drawFigureCallouts = (scene: HTMLElement) =>
+            scene.querySelectorAll<SVGPathElement>(".lv3-fig-callout");
+
+          // init: both scenes show only their question, thinking enabled but
+          // hidden (CSS default-hides it via display:none)
+          scenes.forEach((scene) => {
+            gsap.set(scene.querySelector(".lv3-theater-thinking"), {
+              display: "block",
+              autoAlpha: 0,
+            });
+            gsap.set(scene.querySelector(".lv3-theater-answer"), { autoAlpha: 0 });
+            gsap.set(scene.querySelector(".lv3-theater-q"), { autoAlpha: 0, y: -10 });
+            drawFigureCallouts(scene).forEach((path) => {
+              const len = path.getTotalLength();
+              gsap.set(path, { strokeDasharray: len, strokeDashoffset: len });
+            });
+          });
+          // scene 1 participates in the timeline (CSS hides it otherwise) and
+          // starts one screen-width to the right
+          gsap.set(scenes[1], { visibility: "visible", xPercent: 100 });
+          gsap.set(scenes[0], { xPercent: 0 });
+
+          const theaterTl = gsap.timeline({
+            scrollTrigger: {
+              trigger: ".lv3-theater-section",
+              start: "top top",
+              end: "+=3200",
+              pin: true,
+              scrub: 1,
+            },
+          });
+
+          scenes.forEach((scene, i) => {
+            const q = scene.querySelector(".lv3-theater-q");
+            const thinking = scene.querySelector(".lv3-theater-thinking");
+            const answer = scene.querySelector(".lv3-theater-answer");
+            const callouts = drawFigureCallouts(scene);
+
+            if (i > 0) {
+              // slide previous scene out, this one in
+              theaterTl
+                .to(scenes[i - 1], { xPercent: -100, duration: 0.8 })
+                .set(scenes[i - 1], { autoAlpha: 0 })
+                .to(scene, { xPercent: 0, duration: 0.8 }, "<");
+            }
+
+            theaterTl
+              .to(q, { autoAlpha: 1, y: 0, duration: 0.5 })
+              .to({}, { duration: 0.3 })
+              .to(thinking, { autoAlpha: 1, duration: 0.4 })
+              .to({}, { duration: 0.5 })
+              .to(thinking, { autoAlpha: 0, duration: 0.3 })
+              .to(answer, { autoAlpha: 1, duration: 0.5 }, "<")
+              .to(callouts, { strokeDashoffset: 0, duration: 0.5, stagger: 0.15 }, "<0.1")
+              .to({}, { duration: 0.6 });
+          });
+        }
+      });
 
       const handleLoad = () => ScrollTrigger.refresh();
       window.addEventListener("load", handleLoad);
@@ -323,8 +400,8 @@ export default function LandingPage() {
         </section>
 
         <ComponentShowcase />
-        <PipelineDiagram />
-        <ScenarioReveal />
+        <PaperStory />
+        <ScenarioTheater />
 
         <section className="lv3-section">
           <p className="lv3-eyebrow lv3-reveal">How to use it</p>
@@ -377,7 +454,6 @@ export default function LandingPage() {
             <span>Built for the OKX AI Genesis Hackathon</span>
             <nav>
               <Link href="/chat">Chat</Link>
-              <Link href="/gallery">Gallery</Link>
             </nav>
           </div>
         </footer>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { A2uiRenderer } from "@/components/A2uiRenderer";
 import {
   askQuestion,
@@ -8,6 +8,15 @@ import {
   uploadDocument,
   type ChatResponse,
 } from "@/lib/api";
+import {
+  type Conversation,
+  deleteConversation,
+  listConversations,
+  loadConversation,
+  newConversationId,
+  saveConversation,
+  type StoredEntry,
+} from "@/lib/conversations";
 import { getStoredSessionId, storeSessionId } from "@/lib/session";
 
 const SUGGESTED_QUESTIONS = [
@@ -16,37 +25,68 @@ const SUGGESTED_QUESTIONS = [
   "Quiz me on the difference between A2A and A2MCP.",
 ];
 
-interface CanvasEntry {
-  id: string;
-  question: string;
-  status: "loading" | "success" | "error";
-  response?: ChatResponse;
-  errorStatus?: number;
-  errorMessage?: string;
-}
-
 type DocumentState =
   | { kind: "idle" }
   | { kind: "uploading"; fileName: string }
   | { kind: "ready"; sourceId: string; title: string; chunkCount: number }
   | { kind: "error"; message: string };
 
-function newEntryId(): string {
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-export default function Home() {
+export default function ChatPage() {
+  const [conversationId, setConversationId] = useState(() => newConversationId());
+  const [entries, setEntries] = useState<StoredEntry[]>([]);
   const [question, setQuestion] = useState("");
-  const [entries, setEntries] = useState<CanvasEntry[]>([]);
   const [document, setDocument] = useState<DocumentState>({ kind: "idle" });
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
 
   const busy = entries.some((e) => e.status === "loading");
+
+  // hydrate the sidebar list on mount (localStorage isn't available on the server)
+  useEffect(() => {
+    setConversations(listConversations());
+  }, []);
+
+  // persist + refresh the sidebar whenever the thread changes
+  useEffect(() => {
+    if (entries.length === 0) return;
+    saveConversation(conversationId, entries);
+    setConversations(listConversations());
+  }, [entries, conversationId]);
+
+  // keep the newest message in view
+  useEffect(() => {
+    endRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [entries]);
+
+  function startNewChat() {
+    setConversationId(newConversationId());
+    setEntries([]);
+    setDocument({ kind: "idle" });
+    setSidebarOpen(false);
+  }
+
+  function openConversation(id: string) {
+    const convo = loadConversation(id);
+    if (!convo) return;
+    setConversationId(convo.id);
+    setEntries(convo.entries);
+    setDocument({ kind: "idle" });
+    setSidebarOpen(false);
+  }
+
+  function removeConversation(id: string) {
+    deleteConversation(id);
+    setConversations(listConversations());
+    if (id === conversationId) startNewChat();
+  }
 
   async function submit(q: string) {
     if (!q.trim() || busy) return;
     setQuestion("");
-    const id = newEntryId();
+    const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
     setEntries((prev) => [...prev, { id, question: q, status: "loading" }]);
 
     const documentId = document.kind === "ready" ? document.sourceId : undefined;
@@ -95,126 +135,169 @@ export default function Home() {
   }
 
   return (
-    <main className="lv3-theme">
-      <p className="hero-eyebrow">Generative learning canvas</p>
-      <h1 className="hero-title">
-        Ask anything. <em>Watch it build.</em>
-      </h1>
-      <p className="hero-sub">
-        Every question adds a new interactive component to the canvas below —
-        upload a PDF first to ground the whole conversation in it.
-      </p>
+    <main className="lv3-theme chat-app">
+      <button
+        type="button"
+        className="chat-sidebar-toggle"
+        aria-label="Toggle conversations"
+        onClick={() => setSidebarOpen((v) => !v)}
+      >
+        ☰
+      </button>
 
-      <div className="a2ui-upload-row">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="application/pdf"
-          onChange={handleFileChange}
-          className="a2ui-upload-input"
-          aria-label="Upload a PDF to ground the canvas"
-        />
-        <button
-          type="button"
-          className="a2ui-button"
-          onClick={() => fileInputRef.current?.click()}
-          disabled={document.kind === "uploading"}
-        >
-          {document.kind === "uploading" ? "Uploading…" : "Upload a PDF"}
+      <aside className={`chat-sidebar ${sidebarOpen ? "open" : ""}`}>
+        <button type="button" className="chat-new" onClick={startNewChat}>
+          ＋ New chat
         </button>
+        <div className="chat-convo-list">
+          {conversations.length === 0 && (
+            <p className="chat-convo-empty">No conversations yet.</p>
+          )}
+          {conversations.map((c) => (
+            <div
+              key={c.id}
+              className={`chat-convo ${c.id === conversationId ? "active" : ""}`}
+            >
+              <button
+                type="button"
+                className="chat-convo-open"
+                onClick={() => openConversation(c.id)}
+              >
+                {c.title}
+              </button>
+              <button
+                type="button"
+                className="chat-convo-del"
+                aria-label="Delete conversation"
+                onClick={() => removeConversation(c.id)}
+              >
+                &times;
+              </button>
+            </div>
+          ))}
+        </div>
+      </aside>
 
-        {document.kind === "ready" && (
-          <span className="a2ui-doc-chip">
-            Grounded in: {document.title}
+      <section className="chat-main">
+        <div className="chat-scroll">
+          {entries.length === 0 ? (
+            <div className="chat-empty">
+              <h1 className="chat-empty-title">What do you want to understand?</h1>
+              <p className="chat-empty-sub">
+                Ask a question and get one interactive component back — a
+                diagram, a step-through, a quiz, a live simulation.
+              </p>
+              <div className="chat-suggestions">
+                {SUGGESTED_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    className="chat-suggestion"
+                    onClick={() => submit(q)}
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="chat-thread">
+              {entries.map((entry) => (
+                <div className="chat-turn" key={entry.id}>
+                  <div className="chat-msg user">{entry.question}</div>
+
+                  {entry.status === "loading" && (
+                    <div className="chat-msg assistant">
+                      <div className="status loading">
+                        Thinking about the best way to show this&hellip;
+                      </div>
+                    </div>
+                  )}
+
+                  {entry.status === "error" && (
+                    <div className="chat-msg assistant">
+                      <div className="status error">
+                        {entry.errorStatus === 501
+                          ? `No LLM provider is configured on apps/api yet: ${entry.errorMessage}`
+                          : `Request failed (${entry.errorStatus || "network error"}): ${entry.errorMessage}`}
+                      </div>
+                    </div>
+                  )}
+
+                  {entry.status === "success" && entry.response && (
+                    <div className="chat-msg assistant">
+                      <div className="lv3-stage">
+                        {entry.response.cached && (
+                          <p className="a2ui-chat-cached-note">Served from cache</p>
+                        )}
+                        <A2uiRenderer payload={entry.response} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+              <div ref={endRef} />
+            </div>
+          )}
+        </div>
+
+        <div className="chat-composer-wrap">
+          {document.kind === "ready" && (
+            <span className="a2ui-doc-chip chat-doc-chip">
+              Grounded in: {document.title}
+              <button
+                type="button"
+                className="a2ui-doc-chip-clear"
+                onClick={() => setDocument({ kind: "idle" })}
+                aria-label="Clear grounding document"
+              >
+                &times;
+              </button>
+            </span>
+          )}
+          {document.kind === "error" && (
+            <span className="a2ui-doc-error chat-doc-chip">{document.message}</span>
+          )}
+
+          <form
+            className="chat-composer"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit(question);
+            }}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="application/pdf"
+              onChange={handleFileChange}
+              className="a2ui-upload-input"
+              aria-label="Upload a PDF to ground the conversation"
+            />
             <button
               type="button"
-              className="a2ui-doc-chip-clear"
-              onClick={() => setDocument({ kind: "idle" })}
-              aria-label="Clear grounding document"
+              className="chat-attach"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={document.kind === "uploading"}
+              aria-label="Attach a PDF"
+              title="Attach a PDF"
             >
-              &times;
+              {document.kind === "uploading" ? "…" : "＋"}
             </button>
-          </span>
-        )}
-
-        {document.kind === "error" && (
-          <span className="a2ui-doc-error">{document.message}</span>
-        )}
-      </div>
-
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(question);
-        }}
-        className="a2ui-chat-form"
-      >
-        <input
-          type="text"
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="How does gradient descent actually work?"
-          className="a2ui-chat-input"
-          aria-label="Your question"
-        />
-        <button type="submit" className="a2ui-button primary" disabled={busy}>
-          Ask
-        </button>
-      </form>
-
-      <div className="a2ui-chat-suggestions">
-        {SUGGESTED_QUESTIONS.map((q) => (
-          <button
-            key={q}
-            type="button"
-            className="a2ui-button"
-            onClick={() => submit(q)}
-            disabled={busy}
-          >
-            {q}
-          </button>
-        ))}
-      </div>
-
-      <div className="a2ui-canvas-stack">
-        {entries.map((entry) => (
-          <section key={entry.id} className="a2ui-canvas-card">
-            <p className="a2ui-canvas-card-question">{entry.question}</p>
-
-            {entry.status === "loading" && (
-              <div className="status loading">
-                Thinking about the best way to show this&hellip;
-              </div>
-            )}
-
-            {entry.status === "error" && entry.errorStatus === 501 && (
-              <div className="status error">
-                No LLM provider is configured on apps/api yet: {entry.errorMessage}
-              </div>
-            )}
-            {entry.status === "error" && entry.errorStatus !== 501 && (
-              <div className="status error">
-                Request failed ({entry.errorStatus || "network error"}):{" "}
-                {entry.errorMessage}
-              </div>
-            )}
-
-            {entry.status === "success" && entry.response && (
-              <div className="a2ui-chat-result lv3-stage">
-                {entry.response.cached && (
-                  <p className="a2ui-chat-cached-note">Served from cache</p>
-                )}
-                <A2uiRenderer payload={entry.response} />
-              </div>
-            )}
-          </section>
-        ))}
-      </div>
-
-      <p className="a2ui-chat-gallery-link">
-        Browse the full component catalog with sample data in the{" "}
-        <a href="/gallery">gallery</a>.
-      </p>
+            <input
+              type="text"
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              placeholder="Ask anything…"
+              className="chat-input"
+              aria-label="Your question"
+            />
+            <button type="submit" className="chat-send" disabled={busy || !question.trim()}>
+              ↑
+            </button>
+          </form>
+        </div>
+      </section>
     </main>
   );
 }
