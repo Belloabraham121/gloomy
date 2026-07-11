@@ -30,7 +30,7 @@ function GalleryItem({
 
 export default function GalleryPage() {
   return (
-    <main className="a2ui-gallery">
+    <main className="lv3-theme a2ui-gallery">
       <p className="hero-eyebrow">Component catalog</p>
       <h1 className="hero-title">
         The A2UI <em>gallery</em>
@@ -39,7 +39,7 @@ export default function GalleryPage() {
         Every component the model is allowed to answer with, rendered here
         from hardcoded fixture data — no backend or LLM involved.
       </p>
-      <div className="a2ui-gallery-grid">
+      <div className="a2ui-gallery-grid lv3-stage">
         <GalleryItem kind="Diagram">
           <Diagram {...sampleDiagram} />
         </GalleryItem>

@@ -148,6 +148,117 @@ function TorusKnot({ config }: { config: SceneConfig }) {
   );
 }
 
+function Agents({ config }: { config: SceneConfig }) {
+  const groupRef = useRef<THREE.Group>(null);
+  const messagesRef = useRef<THREE.InstancedMesh>(null);
+  const tempObject = useMemo(() => new THREE.Object3D(), []);
+
+  // Density (6-24) maps down to a legible node count for a network - a
+  // few agents read clearly, 24 individual spheres would just be noise.
+  const count = Math.max(4, Math.min(10, Math.round(config.density / 2)));
+
+  const nodes = useMemo(
+    () =>
+      Array.from({ length: count }, (_, i) => {
+        const angle = (i / count) * Math.PI * 2;
+        const radius = 2.2 + (i % 3) * 0.3;
+        return {
+          position: new THREE.Vector3(
+            Math.cos(angle) * radius,
+            Math.sin(angle * 1.3) * 0.9,
+            Math.sin(angle) * radius,
+          ),
+          phase: i * 0.9,
+          hue: (config.hue / 360 + (i / count) * 0.14) % 1,
+        };
+      }),
+    [count, config.hue],
+  );
+
+  const edges = useMemo(() => {
+    const pairs: [number, number][] = [];
+    for (let i = 0; i < nodes.length; i++) {
+      pairs.push([i, (i + 1) % nodes.length]);
+      if (i % 2 === 0) pairs.push([i, (i + 2) % nodes.length]);
+    }
+    return pairs;
+  }, [nodes]);
+
+  const lineGeometry = useMemo(() => {
+    const positions = new Float32Array(edges.length * 6);
+    edges.forEach(([a, b], i) => {
+      positions.set(nodes[a].position.toArray(), i * 6);
+      positions.set(nodes[b].position.toArray(), i * 6 + 3);
+    });
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+    return geo;
+  }, [edges, nodes]);
+
+  const messageCount = Math.min(6, edges.length);
+  const messages = useMemo(
+    () =>
+      Array.from({ length: messageCount }, (_, i) => ({
+        edge: edges[(i * 3) % edges.length],
+        offset: i / messageCount,
+        speed: 0.25 + (i % 3) * 0.08,
+      })),
+    [edges, messageCount],
+  );
+
+  useFrame(({ clock }) => {
+    const t = clock.elapsedTime * config.speed;
+
+    groupRef.current?.children.forEach((child, i) => {
+      const node = nodes[i];
+      if (!node) return;
+      const s = 1 + Math.sin(t * 1.4 + node.phase) * 0.18;
+      child.scale.setScalar(s);
+    });
+
+    const mesh = messagesRef.current;
+    if (mesh) {
+      messages.forEach((m, i) => {
+        const [a, b] = m.edge;
+        const frac = (t * m.speed + m.offset) % 1;
+        const pos = nodes[a].position.clone().lerp(nodes[b].position, frac);
+        tempObject.position.copy(pos);
+        tempObject.updateMatrix();
+        mesh.setMatrixAt(i, tempObject.matrix);
+      });
+      mesh.instanceMatrix.needsUpdate = true;
+    }
+  });
+
+  return (
+    <>
+      <lineSegments geometry={lineGeometry}>
+        <lineBasicMaterial
+          color={new THREE.Color().setHSL(config.hue / 360, 0.6, 0.55)}
+          transparent
+          opacity={0.35}
+        />
+      </lineSegments>
+      <group ref={groupRef}>
+        {nodes.map((node, i) => (
+          <mesh key={i} position={node.position}>
+            <sphereGeometry args={[0.22, 20, 20]} />
+            <meshStandardMaterial
+              color={new THREE.Color().setHSL(node.hue, 0.7, 0.6)}
+              emissive={new THREE.Color().setHSL(node.hue, 0.75, 0.3)}
+              roughness={0.35}
+            />
+          </mesh>
+        ))}
+      </group>
+      <instancedMesh key={messageCount} ref={messagesRef} args={[undefined, undefined, messageCount]}>
+        <sphereGeometry args={[0.08, 12, 12]} />
+        <meshStandardMaterial color="#ffffff" emissive="#ffffff" emissiveIntensity={1.2} />
+      </instancedMesh>
+    </>
+  );
+}
+
 function Rig({ speed }: { speed: number }) {
   const rotation = useRef({ x: -0.35, y: 0, dragging: false, lastX: 0, lastY: 0 });
 
@@ -209,6 +320,7 @@ export function Scene({ config }: { config: SceneConfig }) {
       {config.preset === "waveField" && <WaveField config={config} />}
       {config.preset === "orbitals" && <Orbitals config={config} />}
       {config.preset === "torusKnot" && <TorusKnot config={config} />}
+      {config.preset === "agents" && <Agents config={config} />}
       <Rig speed={config.speed} />
     </Canvas>
   );
