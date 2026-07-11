@@ -1,96 +1,127 @@
-# apps/api
+# gloomy API (`apps/api`)
 
-Backend: Node.js + TypeScript + Express. Owns the LLM tool-use loop
-(Claude **and** OpenAI handlers), caching, progress tracking, and — later —
-the RAG retriever. Shared by both `apps/web` and `apps/web-3d`'s concepts,
-though `apps/web-3d` runs its own CopilotKit runtime route for chat.
+The backend that turns a question into one schema-validated interactive
+component. Express + TypeScript (ESM), multi-provider LLM (Claude / OpenAI),
+optional Postgres + pgvector for cache / progress / PDF grounding (RAG).
 
-## Current state (build order steps 1, 3, 6 — step 4 RAG not started)
+## Endpoints
 
-- `GET /health` — liveness check.
-- `POST /api/chat` — accepts `{ threadId, sessionId?, messages }`.
-  1. Checks the cache (Postgres, keyed on a hash of the question) — a hit
-     returns immediately with `cached: true` and never touches any LLM.
-  2. On a miss, picks a provider (see below) and runs a tool-use turn with
-     one tool per component in `packages/a2ui-spec`. Whatever the model
-     returns is validated against that same Zod schema (never trusted
-     as-is), with one retry feeding the validation error back.
-  3. Stores the result in the cache and records a progress row (creating a
-     session if `sessionId` wasn't passed).
-  4. Returns `{ threadId, sessionId, cached, provider, component, props }`.
-  - Returns **501** with a clear message if no provider is configured
-    (checked *after* the cache lookup, so cache hits work with zero keys).
-  - Returns **400** if `messages` is empty, **502** if the model never
-    produces a valid tool call (including after the retry).
-  - Caching and progress tracking are best-effort: no `DATABASE_URL` means
-    they're silently skipped and `/api/chat` still works.
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/health` | Liveness check → `{ ok: true, service }`. |
+| `GET` | `/.well-known/agent.json` (also `/agent`) | Machine-readable agent manifest: name, description, version, the 6 A2UI capabilities, endpoint URLs. Used for agent discovery / the OKX ASP listing. |
+| `POST` | `/api/chat` | `{ messages:[{role,content}], sessionId?, documentId? }` → one `{ component, props, provider, cached }` payload, validated against the A2UI Zod schema. Cache hit → returns immediately with `cached:true`, no LLM call. |
+| `POST` | `/api/documents` | Multipart PDF upload (field `file`) → `{ sourceId, title, chunkCount }`; ground later questions by passing that `documentId` to `/api/chat`. |
 
-### Provider selection
+### Provider selection (`src/llm/index.ts`)
 
-`src/llm/index.ts`: `LLM_PROVIDER=anthropic|openai` forces one, and fails
-loudly if that provider's key is missing rather than silently falling back.
-Unset, Anthropic is preferred when `ANTHROPIC_API_KEY` is present, else
-OpenAI when `OPENAI_API_KEY` is. Both handlers share the same validation
-gate (`src/llm/shared.ts`) and the same provider-neutral tool specs
-(`src/llm/tools.ts`, JSON Schema generated from the Zod schemas).
+`LLM_PROVIDER=anthropic|openai` forces one (and fails loudly if that key is
+missing). Unset, Anthropic is preferred when `ANTHROPIC_API_KEY` is present,
+else OpenAI. Both handlers share one Zod validation gate (`src/llm/shared.ts`)
+and provider-neutral tool specs generated from `packages/a2ui-spec`.
 
-## Run it
+### Degrades safely (important for a public deploy)
+
+- **No LLM key** → `/api/chat` returns `501` with a clear message (checked
+  *after* the cache lookup, so cached answers still work with zero keys).
+- **No / unreachable `DATABASE_URL`** → cache, progress, and grounding become
+  no-ops; a configured-but-down Postgres is treated as a cache miss, never a
+  crash. `400` on empty `messages`, `502` if the model never returns a valid
+  tool call (incl. after one retry).
+
+## Local dev
 
 ```bash
-cp .env.example .env     # ANTHROPIC_API_KEY and/or OPENAI_API_KEY + DATABASE_URL
-pnpm install
-pnpm run db:migrate       # applies src/db/migrations/ to DATABASE_URL
-pnpm dev                   # http://localhost:4000
-pnpm test                   # unit tests + (if DATABASE_URL is set) live DB integration tests
+cd apps/api
+cp .env.example .env        # add ANTHROPIC_API_KEY and/or OPENAI_API_KEY
+pnpm run db:migrate         # only if using Postgres (needs the pgvector extension)
+pnpm dev                    # http://localhost:4000
+pnpm test                   # 29 tests: mocked-client + RAG unit tests always run;
+                            # live-Postgres tests run only if DATABASE_URL is set + reachable
 ```
 
-`DATABASE_URL` needs a Postgres with the `pgvector` extension available
-(`CREATE EXTENSION vector;`) — a hosted option like Supabase or Neon has it
-built in; see the root README's database discussion for why.
+## Deploy (required before OKX ASP registration)
+
+The ASP service endpoint registered on-chain must be a **public, permanent
+`https://` URL** (`localhost` / `http` / private IPs are rejected), so the API
+must be deployed first. A production `Dockerfile` already exists at
+`apps/api/Dockerfile`.
+
+**Any container host works (Railway / Render / Fly / Coolify / a VPS).** The one
+non-obvious bit, because this is a pnpm monorepo:
+
+1. **Build context = the repo root**, Dockerfile path = `apps/api/Dockerfile`
+   (the image installs the whole workspace so `@gloomy/a2ui-spec` resolves).
+2. **Env vars on the host:**
+   - `ANTHROPIC_API_KEY` and/or `OPENAI_API_KEY` — at least one (required for real answers).
+   - `PUBLIC_API_URL=https://<your-api-domain>` — makes `/.well-known/agent.json` advertise the real URL.
+   - optional: `LLM_PROVIDER`, `DATABASE_URL` (Postgres+pgvector, e.g. Supabase / Neon), `PUBLIC_WEB_URL`.
+   - `PORT` is read from the env if the host injects one.
+3. **Verify the live deploy:**
+   ```bash
+   curl https://<your-api-domain>/health
+   curl https://<your-api-domain>/.well-known/agent.json
+   curl -X POST https://<your-api-domain>/api/chat \
+     -H 'Content-Type: application/json' \
+     -d '{"messages":[{"role":"user","content":"How does a circle'\''s area relate to its radius?"}]}'
+   # → a { component, props } payload once keys are set
+   ```
+
+Point the frontend's `NEXT_PUBLIC_API_URL` (on Vercel) at this same URL.
+
+## Register gloomy as an OKX ASP (Agent Service Provider)
+
+Registration is an **ERC-8004 agent identity on XLayer**, created through the
+`onchainos` CLI from the `okx/onchainos-skills` toolkit (`okx-ai` skill).
+On-chain fees are covered by OKX. **It touches your OKX wallet — run it yourself**
+in a session where your wallet is connected; the `okx-ai` skill drives the exact
+conversational flow and renders a confirmation card before the single on-chain
+write. Prerequisites and steps, taken directly from that skill's
+`references/identity-register.md`:
+
+**Prerequisites**
+1. The API deployed at a public `https://` URL (above) — becomes the permanent on-chain service endpoint.
+2. An OKX wallet / OnchainOS account connected (the CLI pre-flight handles wallet login).
+3. An **avatar image file** (ASP registration requires one; image links are rejected).
+
+**Flow** (trigger it by telling the skill *"register gloomy as an ASP"*):
+1. `onchainos preflight` — updates/verifies the CLI + wallet login.
+2. `onchainos agent pre-check --role asp` — first-time consent + per-wallet uniqueness (one ASP per address).
+3. `onchainos agent upload --file <avatar>` → avatar CDN URL.
+4. Listing fields:
+   - **Name**: `gloomy` (3–25 chars).
+   - **Description**: e.g. *"Turns a question or an uploaded PDF into one interactive, schema-validated learning component."* (≤500 chars).
+   - **Service**: name (5–30-char noun phrase, e.g. "Interactive concept explainer") · 2-part description (what it does / what the caller provides) · **Type `A2MCP`** (HTTP API) · **Fee** digits only, USDT implied (e.g. `"10"`) · **Endpoint** = `https://<your-api-domain>/api/chat`.
+5. `onchainos agent validate-listing --role asp --name … --description … --service '[…]'` — QA pass.
+6. `onchainos agent create --role asp --name … --description … --picture <url> --service '[…]'` → new `#id`.
+7. `onchainos agent activate #<id>` — publish it so others can discover / hire it.
+
+> The endpoint is **permanent on-chain** — deploy to a stable domain before
+> registering; changing it later needs an `agent update`.
 
 ## Testing
 
-All run via `pnpm test`, 20 tests total:
-
-- `src/llm/anthropic.test.ts` — mocked Anthropic client: valid tool call,
-  unknown component, retry-succeeds, retry-still-fails, text-only response.
-- `src/llm/openai.test.ts` — mocked OpenAI client: same five cases plus
-  malformed-JSON tool arguments (OpenAI sends arguments as a string).
-- `src/llm/provider.test.ts` — selection logic: preference order, forcing,
-  forced-but-missing-key, unrecognized value, nothing configured.
-- `src/db/db.test.ts` — real Postgres (skips cleanly if `DATABASE_URL`
-  isn't set): cache miss/set/upsert, session creation and reuse, and an
-  actual pgvector cosine-similarity query.
+`pnpm test`, 29 tests:
+- `src/llm/{anthropic,openai,provider}.test.ts` — mocked clients: valid tool
+  call, unknown component, retry succeeds/fails, text-only, malformed JSON args,
+  and provider selection logic.
+- `src/rag/{chunk,pdf}.test.ts` — chunker + real-PDF text extraction (no key needed).
+- `src/db/db.test.ts` — live Postgres (skips cleanly without a reachable
+  `DATABASE_URL`): cache miss/set/upsert, per-document cache scoping, session
+  reuse, and a real pgvector cosine query.
 
 ## Layout
 
 ```
-apps/api/
-├── src/
-│   ├── index.ts
-│   ├── routes/
-│   │   └── chat.ts             # POST /api/chat
-│   ├── llm/
-│   │   ├── index.ts             # getLlmProvider() - env-driven selection
-│   │   ├── shared.ts            # ChatMessage, errors, the shared Zod validation gate
-│   │   ├── tools.ts             # a2ui-spec schemas -> provider-neutral tool specs
-│   │   ├── system-prompt.ts
-│   │   ├── anthropic.ts         # Claude tool-use loop
-│   │   ├── openai.ts            # OpenAI function-calling loop
-│   │   └── *.test.ts
-│   ├── db/
-│   │   ├── schema.ts             # cache_entries, sessions, progress_entries, sources, chunks (pgvector)
-│   │   ├── client.ts             # getDb() -> Drizzle client, or null if DATABASE_URL unset
-│   │   ├── migrate.ts            # applies src/db/migrations/
-│   │   ├── migrations/
-│   │   └── db.test.ts
-│   ├── cache/
-│   │   └── cache.ts              # getCachedResponse / setCachedResponse
-│   ├── progress/
-│   │   └── progress.ts           # recordProgress (creates/reuses a session)
-│   └── rag/                       # step 4, not built yet
-├── drizzle.config.ts
-├── .env.example
-├── package.json
-└── tsconfig.json
+apps/api/src/
+├── index.ts                 # app wiring, body-size guard
+├── routes/
+│   ├── agent.ts             # GET /.well-known/agent.json + /agent (manifest)
+│   ├── chat.ts              # POST /api/chat (+ grounding)
+│   └── documents.ts         # POST /api/documents (PDF upload)
+├── llm/                     # getLlmProvider(), Claude + OpenAI loops, Zod gate, tool specs
+├── rag/                     # pdf → chunk → embed → retrieve (grounding)
+├── db/                      # Drizzle schema, client, migrations
+├── cache/                   # best-effort cache (DB errors → miss)
+└── progress/                # best-effort progress rows
 ```
