@@ -5,7 +5,9 @@ import Link from "next/link";
 import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { useGSAP } from "@gsap/react";
+import { ComponentShowcase } from "@/components/landing/ComponentShowcase";
 import { LandingDashboard } from "@/components/landing/LandingDashboard";
+import { PipelineDiagram } from "@/components/landing/PipelineDiagram";
 
 gsap.registerPlugin(ScrollTrigger, useGSAP);
 
@@ -116,7 +118,109 @@ export default function LandingPage() {
           stagger: 0.12,
           scrollTrigger: { trigger: ".lv3-usage", start: "top 88%", once: true },
         });
+
+        // component showcase icons wobble forever once settled, on every
+        // width - the entrance pop itself is width-specific, set up below
+        gsap.utils.toArray<HTMLElement>(".lv3-showcase-icon").forEach((icon, i) => {
+          gsap.to(icon, {
+            rotate: i % 2 === 0 ? 10 : -10,
+            duration: gsap.utils.random(2.2, 3.2),
+            ease: "sine.inOut",
+            repeat: -1,
+            yoyo: true,
+          });
+        });
+
+        // pipeline diagram: nodes pop, connecting lines draw in sequence
+        const pipeEdges = gsap.utils.toArray<SVGPathElement>(".lv3-pipe-edge");
+        pipeEdges.forEach((path) => {
+          const length = path.getTotalLength();
+          gsap.set(path, { strokeDasharray: length, strokeDashoffset: length });
+        });
+        const pipeNodes = gsap.utils.toArray<SVGGElement>(".lv3-pipe-node");
+        if (pipeNodes.length > 0) {
+          const pipeTl = gsap.timeline({
+            scrollTrigger: {
+              trigger: ".lv3-pipe-section",
+              start: "top 80%",
+              once: true,
+            },
+          });
+          pipeNodes.forEach((node, i) => {
+            pipeTl.from(
+              node,
+              { scale: 0.6, autoAlpha: 0, duration: 0.45, ease: "back.out(2)" },
+              i === 0 ? 0 : "+=0.05",
+            );
+            if (pipeEdges[i]) {
+              pipeTl.to(
+                pipeEdges[i],
+                { strokeDashoffset: 0, duration: 0.5, ease: "power2.inOut" },
+                "<0.1",
+              );
+            }
+          });
+        }
       });
+
+      // horizontal-scroll pin for the component showcase - desktop only,
+      // a native swipeable strip takes over below 900px (see CSS)
+      mm.add(
+        "(min-width: 900px) and (prefers-reduced-motion: no-preference)",
+        () => {
+          const track = document.querySelector<HTMLElement>(".lv3-showcase-track");
+          const viewport = document.querySelector<HTMLElement>(
+            ".lv3-showcase-viewport",
+          );
+          if (!track || !viewport) return;
+
+          // cards pop in with a playful over-rotation as the section arrives
+          gsap.from(".lv3-showcase-card", {
+            scale: 0.7,
+            rotate: () => gsap.utils.random(-10, 10),
+            autoAlpha: 0,
+            duration: 0.6,
+            ease: "back.out(1.7)",
+            stagger: 0.08,
+            scrollTrigger: { trigger: ".lv3-showcase", start: "top 75%", once: true },
+          });
+
+          const scrollAmount = () => track.scrollWidth - viewport.clientWidth;
+
+          gsap.to(track, {
+            x: () => -scrollAmount(),
+            ease: "none",
+            scrollTrigger: {
+              trigger: ".lv3-showcase",
+              start: "top top",
+              end: () => "+=" + scrollAmount(),
+              scrub: 1,
+              pin: true,
+              invalidateOnRefresh: true,
+            },
+          });
+        },
+      );
+
+      mm.add(
+        "(max-width: 899.98px) and (prefers-reduced-motion: no-preference)",
+        () => {
+          // mobile gets a simpler, non-rotated reveal - no pin/scrub, cards
+          // are a native swipeable strip instead (see the CSS breakpoint)
+          gsap.from(".lv3-showcase-card", {
+            y: 30,
+            autoAlpha: 0,
+            duration: 0.6,
+            ease: "power3.out",
+            stagger: 0.1,
+            scrollTrigger: { trigger: ".lv3-showcase", start: "top 82%", once: true },
+          });
+        },
+      );
+
+      const handleLoad = () => ScrollTrigger.refresh();
+      window.addEventListener("load", handleLoad);
+      return () => window.removeEventListener("load", handleLoad);
     },
     { scope: root },
   );
@@ -191,6 +295,9 @@ export default function LandingPage() {
             ))}
           </div>
         </section>
+
+        <ComponentShowcase />
+        <PipelineDiagram />
 
         <section className="lv3-section">
           <p className="lv3-eyebrow lv3-reveal">How to use it</p>

@@ -1551,6 +1551,159 @@ body:has(main.lv3) .shell-nav a[aria-current="page"] {
   color: var(--peach-ink);
 }
 
+/* ---- component showcase: pinned horizontal scroll ---- */
+
+.lv3-showcase {
+  padding: 3.5rem 0 1rem;
+}
+
+.lv3-showcase-head {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  text-align: center;
+}
+
+.lv3-showcase-viewport {
+  max-width: 1000px;
+  margin: 2.5rem auto 0;
+  overflow: hidden;
+}
+
+.lv3-showcase-track {
+  display: flex;
+  gap: 1.4rem;
+  padding: 0.5rem 1.5rem 1.5rem;
+  width: max-content;
+}
+
+.lv3-showcase-card {
+  flex: 0 0 auto;
+  width: 260px;
+  background: #fff;
+  border: 1px solid rgba(34, 48, 63, 0.08);
+  border-radius: 18px;
+  padding: 1.8rem 1.6rem;
+  box-shadow: 0 6px 22px rgba(34, 48, 63, 0.08);
+}
+
+.lv3-showcase-icon {
+  display: inline-grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  font-size: 1.3rem;
+  font-weight: 700;
+  margin-bottom: 1.1rem;
+}
+
+.lv3-showcase-card:nth-child(3n + 1) .lv3-showcase-icon {
+  background: var(--lilac-bg);
+  color: var(--lilac-ink);
+}
+
+.lv3-showcase-card:nth-child(3n + 2) .lv3-showcase-icon {
+  background: var(--peach-bg);
+  color: var(--peach-ink);
+}
+
+.lv3-showcase-card:nth-child(3n) .lv3-showcase-icon {
+  background: #dff3e6;
+  color: var(--leaf-deep);
+}
+
+.lv3-showcase-card h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--sky-ink);
+}
+
+.lv3-showcase-card p {
+  margin: 0;
+  color: var(--sky-soft);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+@media (max-width: 899px) {
+  .lv3-showcase-viewport {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scroll-snap-type: x mandatory;
+  }
+
+  .lv3-showcase-card {
+    scroll-snap-align: start;
+    width: 78vw;
+    max-width: 300px;
+  }
+}
+
+/* ---- pipeline diagram: connecting-line reveal ---- */
+
+.lv3-pipe-section {
+  padding: 3.5rem 0 1rem;
+}
+
+.lv3-pipe-sub {
+  max-width: 34rem;
+  margin: 0.6rem auto 0;
+  color: var(--sky-soft);
+  font-size: 1rem;
+}
+
+.lv3-pipe-scroll {
+  max-width: 1080px;
+  margin: 2.5rem auto 0;
+  padding: 0 1.5rem;
+  overflow-x: auto;
+}
+
+.lv3-pipe-svg {
+  width: 100%;
+  min-width: 640px;
+  height: auto;
+  display: block;
+}
+
+.lv3-pipe-node {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.lv3-pipe-node rect {
+  fill: #fff;
+  stroke: rgba(34, 48, 63, 0.1);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 6px 16px rgba(34, 48, 63, 0.08));
+}
+
+.lv3-pipe-label {
+  fill: var(--sky-ink);
+  font-family: var(--sans);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.lv3-pipe-desc {
+  fill: var(--sky-faint);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.lv3-pipe-edge {
+  fill: none;
+  stroke: var(--leaf);
+  stroke-width: 2;
+}
+
+.lv3-pipe-arrowhead {
+  fill: var(--leaf);
+}
+
 .lv3-cards,
 .lv3-usage {
   display: grid;
