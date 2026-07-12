@@ -1,6 +1,7 @@
 import cors from "cors";
 import express from "express";
 import { agentRouter } from "./routes/agent.js";
+import { agentTaskRouter } from "./routes/agent-task.js";
 import { chatRouter } from "./routes/chat.js";
 import { documentsRouter } from "./routes/documents.js";
 
@@ -19,6 +20,7 @@ app.get("/health", (_req, res) => {
 
 app.use(agentRouter);
 app.use("/api/chat", chatRouter);
+app.use("/api/agent/task", agentTaskRouter);
 app.use("/api/documents", documentsRouter);
 
 app.listen(port, () => {

@@ -11,6 +11,7 @@ optional Postgres + pgvector for cache / progress / PDF grounding (RAG).
 | `GET` | `/health` | Liveness check → `{ ok: true, service }`. |
 | `GET` | `/.well-known/agent.json` (also `/agent`) | Machine-readable agent manifest: name, description, version, the 6 A2UI capabilities, endpoint URLs. Used for agent discovery / the OKX ASP listing. |
 | `POST` | `/api/chat` | `{ messages:[{role,content}], sessionId?, documentId? }` → one `{ component, props, provider, cached }` payload, validated against the A2UI Zod schema. Cache hit → returns immediately with `cached:true`, no LLM call. |
+| `POST` | `/api/agent/task` | Marketplace fulfillment: `{ task, jobId?, documentId? }` → `{ component, props, viewUrl, deliverMessage }`. `viewUrl` is a stateless public render link (`/d?p=…` on the web app); `deliverMessage` is ready for `onchainos agent deliver --message`. Optional auth via `AGENT_TASK_KEY` env + `x-agent-key` header. |
 | `POST` | `/api/documents` | Multipart PDF upload (field `file`) → `{ sourceId, title, chunkCount }`; ground later questions by passing that `documentId` to `/api/chat`. |
 
 ### Provider selection (`src/llm/index.ts`)
@@ -99,13 +100,55 @@ write. Prerequisites and steps, taken directly from that skill's
 > The endpoint is **permanent on-chain** — deploy to a stable domain before
 > registering; changing it later needs an `agent update`.
 
+## Fulfilling marketplace tasks (the A2A lane)
+
+Marketplace task envelopes (`{msgType:"a2a-agent-chat", jobId, sender:{role:1},…}`
+and `{agentId, message:{source:"system", event, jobId}}`) arrive over **XMTP
+into the ASP operator's agent session** (Claude Code / OpenClaw with
+`okx/onchainos-skills` + the `okx-a2a` daemon) — they are *not* HTTP calls to
+this API. The session reacts by running `onchainos agent next-action` and
+executing its output (see the skill's `references/task-core.md`). gloomy's part
+of the lane is the fulfillment: one HTTP call that does the actual work and
+returns a deliver-ready result.
+
+The full flow, using the skill's own commands:
+
+1. **Envelope arrives** in the operator session → the `okx-ai` skill activates
+   and drives negotiation / `apply` via
+   `onchainos agent next-action --role auto --agentId <id> --message '<…>'`.
+2. **Wait for the `job_accepted` system event.** Per the skill
+   (`task-asp.md`): *never* do the work or deliver before it — escrow isn't
+   funded until then, and the CLI rejects `deliver` while `status != accepted`.
+3. **Fulfill** with one call:
+   ```bash
+   curl -X POST https://<your-api-domain>/api/agent/task \
+     -H 'Content-Type: application/json' \
+     -H 'x-agent-key: <AGENT_TASK_KEY, if configured>' \
+     -d '{"task":"<the job description from the task>","jobId":"<jobId>"}'
+   ```
+   → `{ component, props, viewUrl, deliverMessage }`. `viewUrl` is a
+   **stateless** link (`/d?p=<encoded payload>` on the web app) that renders
+   the interactive component for the buyer forever, with no storage behind it.
+4. **Deliver**:
+   ```bash
+   onchainos agent deliver <jobId> --message "<deliverMessage>" --agent-id <aspAgentId>
+   ```
+   (optionally also `--file` with the raw `{component, props}` JSON saved to disk).
+
+Service-type note for the listing: register the service as **`A2A`**
+(agent-to-agent) for the marketplace lane above; the **`A2MCP`** (direct API)
+lane is `/api/chat`. One listing can carry both services.
+
 ## Testing
 
-`pnpm test`, 29 tests:
+`pnpm test`, 39 tests:
 - `src/llm/{anthropic,openai,provider}.test.ts` — mocked clients: valid tool
   call, unknown component, retry succeeds/fails, text-only, malformed JSON args,
   and provider selection logic.
 - `src/rag/{chunk,pdf}.test.ts` — chunker + real-PDF text extraction (no key needed).
+- `src/payload-link.test.ts` + `src/routes/agent-task.test.ts` — deliverable
+  link round-trip, URL safety, tamper/garbage rejection, and the fulfillment
+  endpoint's link/auth helpers.
 - `src/db/db.test.ts` — live Postgres (skips cleanly without a reachable
   `DATABASE_URL`): cache miss/set/upsert, per-document cache scoping, session
   reuse, and a real pgvector cosine query.
@@ -117,6 +160,7 @@ apps/api/src/
 ├── index.ts                 # app wiring, body-size guard
 ├── routes/
 │   ├── agent.ts             # GET /.well-known/agent.json + /agent (manifest)
+│   ├── agent-task.ts        # POST /api/agent/task (marketplace fulfillment)
 │   ├── chat.ts              # POST /api/chat (+ grounding)
 │   └── documents.ts         # POST /api/documents (PDF upload)
 ├── llm/                     # getLlmProvider(), Claude + OpenAI loops, Zod gate, tool specs
