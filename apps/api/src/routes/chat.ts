@@ -1,8 +1,5 @@
-import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { getCachedResponse, setCachedResponse } from "../cache/cache.js";
-import { getDb } from "../db/client.js";
-import { sources } from "../db/schema.js";
 import {
   getLlmProvider,
   MissingApiKeyError,
@@ -10,7 +7,7 @@ import {
   type ChatMessage,
 } from "../llm/index.js";
 import { recordProgress } from "../progress/progress.js";
-import { formatGroundingContext, retrieveChunks } from "../rag/retrieve.js";
+import { buildGroundingContext } from "../rag/grounding.js";
 
 export const chatRouter = Router();
 
@@ -19,32 +16,6 @@ interface ChatRequestBody {
   sessionId?: string;
   documentId?: string;
   messages?: ChatMessage[];
-}
-
-async function buildGroundingContext(
-  documentId: string | undefined,
-  question: string,
-): Promise<string | null> {
-  if (!documentId) return null;
-  const db = getDb();
-  if (!db) return null;
-
-  try {
-    const [source] = await db
-      .select({ title: sources.title })
-      .from(sources)
-      .where(eq(sources.id, documentId))
-      .limit(1);
-    if (!source) return null;
-
-    const relevantChunks = await retrieveChunks(documentId, question);
-    return formatGroundingContext(relevantChunks, source.title);
-  } catch (err) {
-    // A down database shouldn't fail the whole answer - fall back to
-    // ungrounded generation rather than crashing the request.
-    console.error("buildGroundingContext failed (ungrounded fallback):", err);
-    return null;
-  }
 }
 
 chatRouter.post("/", async (req, res) => {

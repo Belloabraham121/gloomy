@@ -763,6 +763,39 @@ main.chat-app {
   }
 }
 
+/* --------------------------------------------------------------------------
+   Deliverable viewer (/d) - the public link a marketplace buyer opens
+-------------------------------------------------------------------------- */
+
+.deliverable {
+  max-width: 720px;
+  margin: 0 auto;
+  padding-top: 3.5rem;
+}
+
+.deliverable-eyebrow {
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--leaf-deep);
+  margin: 0 0 1rem;
+}
+
+.deliverable-stage {
+  min-width: 0;
+}
+
+.deliverable-footer {
+  margin-top: 2rem;
+  font-size: 0.875rem;
+  color: var(--sky-faint);
+}
+
+.deliverable-footer a {
+  color: var(--leaf-deep);
+}
+
 /* Status blocks */
 
 .status {

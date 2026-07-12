@@ -35,6 +35,13 @@ function buildManifest(baseUrl: string) {
         description:
           "Send { messages: [{ role, content }], sessionId?, documentId? }; receive one { component, props } payload validated against the A2UI schema.",
       },
+      task: {
+        method: "POST",
+        path: "/api/agent/task",
+        url: `${baseUrl}/api/agent/task`,
+        description:
+          "Marketplace fulfillment: send { task, jobId?, documentId? } after job_accepted; receive { component, props, viewUrl, deliverMessage } - deliverMessage is ready for `onchainos agent deliver --message`.",
+      },
       documents: {
         method: "POST",
         path: "/api/documents",
