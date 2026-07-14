@@ -14,10 +14,17 @@ Use this as the run-order checklist. Detailed guides: [`deploy-coolify.md`](./de
 - [x] OpenUI migration — Lang transport + extended library + `Math` (LaTeX)
   - See [`openui-migration.md`](./openui-migration.md) for what changed
 - [x] Quality gates passed locally (typecheck, **52/52** tests, `next build`, Docker image)
-- [ ] **Commit + push** OpenUI migration to `main` (large uncommitted tree — required for Coolify)
-- [ ] Run prod migration `0002_openui_lang.sql` on deployed Postgres after push
-- [ ] Trigger Coolify redeploy for `apps/api` (and `apps/web` if deployed)
-- [ ] Fix LLM billing: OpenAI key reported inactive; set `ANTHROPIC_API_KEY` or reactivate OpenAI before live `/api/chat` generation
+- [x] **Commit + push** OpenUI migration to `main` (`743f5a8`)
+- [ ] Run prod migration `0002_openui_lang.sql` on deployed Postgres (needs your Coolify/`DATABASE_URL` — no prod URL in this repo)
+  ```bash
+  # from a machine that can reach prod Postgres:
+  psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;"
+  cd apps/api && DATABASE_URL="<prod DATABASE_URL>" pnpm run db:migrate
+  ```
+- [ ] Trigger Coolify redeploy for `apps/api` (and rebuild `apps/web` if deployed) — no deploy webhook in repo; use Coolify → resource → **Redeploy** (web: rebuild so frontend gets new Renderer)
+- [ ] Fix LLM billing (local `.env`: `OPENAI_API_KEY` set, `ANTHROPIC_API_KEY` empty; OpenAI billing was reported inactive):
+  - Reactivate billing at [platform.openai.com](https://platform.openai.com), **or**
+  - Add `ANTHROPIC_API_KEY` to Coolify runtime env **and** `apps/api/.env`, then redeploy
 
 ---
 
