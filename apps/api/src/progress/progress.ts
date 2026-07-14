@@ -1,6 +1,9 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { progressEntries, sessions } from "../db/schema.js";
+import { createLogger } from "../log.js";
+
+const log = createLogger("api:progress");
 
 export interface RecordProgressInput {
   sessionId?: string;
@@ -54,7 +57,7 @@ export async function recordProgress(
     });
     return sessionId;
   } catch (err) {
-    console.error("recordProgress failed:", err);
+    log.errorWith("recordProgress failed", err);
     return null;
   }
 }

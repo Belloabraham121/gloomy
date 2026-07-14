@@ -7,18 +7,22 @@
    question is appended as a new card on the stacking canvas rather than
    replacing the previous one.
 2. `apps/web` `POST`s `{ threadId, sessionId?, documentId?, messages }` to
-   `apps/api`'s `/api/chat`.
-3. `apps/api` checks the cache (Postgres, keyed on a hash of the question
-   *and* `documentId` — see "Caching and progress tracking" below). A hit
-   returns immediately — no LLM is called, and no API key needs to be set.
+   `apps/api`'s `/api/chat` — `messages` is the **full accumulated thread**,
+   not just the new question (see "Conversation history" below), so
+   follow-ups like "now chart that" have context to build on.
+3. `apps/api` checks the cache (Postgres, keyed on a hash of the *latest*
+   question in the thread *and* `documentId` — see "Caching and progress
+   tracking" below). A hit returns immediately — no LLM is called, and no
+   API key needs to be set.
 4. On a miss, `apps/api` picks a provider (`src/llm/index.ts`:
    `LLM_PROVIDER=anthropic|openai` forces one; otherwise Anthropic is
-   preferred when both keys are present) and runs a tool-use turn. The
-   available tools are generated from `packages/a2ui-spec` — one tool per
-   A2UI component (`Diagram`, `StepThrough`, `Quiz`, `Simulation`,
-   `Chart`, `FormulaStepper`). The model picks one and fills its arguments.
-   If `documentId` was passed, the retrieved grounding context (see below)
-   is appended to `SYSTEM_PROMPT` before the call.
+   preferred when both keys are present) and runs a tool-use turn over the
+   whole (capped) message thread. The available tools are generated from
+   `packages/a2ui-spec` — one tool per A2UI component (`Diagram`,
+   `StepThrough`, `Quiz`, `Simulation`, `Chart`, `FormulaStepper`). The
+   model picks one and fills its arguments. If `documentId` was passed, the
+   retrieved grounding context (a PDF excerpt or a parsed CSV summary — see
+   below) is appended to `SYSTEM_PROMPT` before the call.
 5. Whatever the model returns — from either provider — is validated against
    that same Zod schema (never trusted as-is). If invalid, one retry with
    the validation error fed back (`tool_result` for Claude, a `tool` role
@@ -31,11 +35,45 @@
    component from `a2uiComponents` (in `lib/a2ui-library.ts`) and renders
    `props` directly, appended as a new card on the canvas.
 
-## Document upload + RAG grounding (build order step 4) — implemented
+## Conversation history — implemented
+
+Earlier the frontend sent exactly one `{ role: "user", content }` message
+per request, so the model never saw prior turns — a literal restart every
+message. Now `apps/web/src/lib/chat-history.ts`'s `buildThreadMessages`
+builds the full thread before every `askQuestion()` call:
+
+- Every prior user question in the current conversation, verbatim.
+- Every prior *successful* assistant turn, replaced with a short bracketed
+  note (`[assistant generated a Chart titled "Q3 revenue"]`) rather than
+  its full `{component, props}` payload — enough for the model to know
+  what was already shown without re-sending (and re-paying tokens for) the
+  whole structured payload every turn.
+- Capped to the most recent 10 prior turns client-side; `apps/api/src/routes/chat.ts`
+  also caps the thread it will act on to the most recent 24 messages
+  server-side, independent of what the client sends (defense in depth —
+  bounds LLM context/token cost regardless of a buggy or malicious client).
+
+`SYSTEM_PROMPT` (`apps/api/src/llm/system-prompt.ts`) tells the model how
+to read those bracketed notes and to treat a follow-up ("now chart that",
+"make it a quiz") as refining the same underlying subject through a
+different component — while still always calling exactly one catalog tool
+per turn, same as before.
+
+**Caching stays keyed on just the latest question** (+ `documentId`), not
+a hash of the whole thread: hashing the full history would make the cache
+miss on every follow-up by construction (the history is different every
+time), defeating the point of caching repeat questions. The accepted
+tradeoff: the exact same question text asked from two different prior
+contexts can hit the same cached component. Revisit if that turns out to
+matter in practice (e.g. hash the question plus a digest of the history).
+
+## Document upload + data grounding (build order step 4 + CSV) — implemented
 
 `POST /api/documents` (`apps/api/src/routes/documents.ts`, `multer` memory
-storage, PDF only, 20MB cap) runs `apps/api/src/rag/ingest.ts`:
+storage, PDF or CSV, 20MB cap) dispatches to one of two pipelines in
+`apps/api/src/rag/ingest.ts` based on the upload's mimetype/extension:
 
+**PDF → `ingestPdf`** (full RAG):
 1. `pdf.ts` extracts raw text (`unpdf`, no network).
 2. `chunk.ts` splits it into ~1000-char, ~150-char-overlap chunks — a
    hand-rolled paragraph-aware splitter with a sentence-splitting fallback
@@ -46,21 +84,55 @@ storage, PDF only, 20MB cap) runs `apps/api/src/rag/ingest.ts`:
    `OPENAI_API_KEY` even when `LLM_PROVIDER=anthropic`, since Anthropic has
    no embeddings API — a dedicated error message flags this rather than
    letting it look like a generic missing-key failure.
-4. One `sources` row and N `chunks` rows are inserted (Drizzle).
+4. One `sources` row and N `chunks` rows (each with a real embedding) are
+   inserted (Drizzle).
 
-`POST /api/chat` accepts an optional `documentId`. When present,
-`rag/retrieve.ts`'s `retrieveChunks` embeds the question and runs a
-pgvector cosine (`<=>`) nearest-neighbor query scoped to that source,
-`formatGroundingContext` turns the top-k chunks into a instruction block,
-and it's appended to `SYSTEM_PROMPT` for that turn only — no change to the
-tool-use/validation/retry logic itself.
+**CSV → `ingestCsv`** (parse-to-context, deliberately *not* RAG):
+1. `csv/parse.ts`'s `parseCsv` (hand-rolled, handles quoted/escaped fields
+   and CRLF, no dependency) turns the file into headers + rows.
+2. `summarizeCsv` reduces that to one compact text block: per-column
+   inferred type (`numeric` → min/max/avg, `text` → distinct count), row
+   count, and a bounded sample table (first 15 rows, whole thing capped to
+   ~4000 chars) — the real values from the file, explicitly instructed to
+   be used as-is rather than invented.
+3. One `sources` row and exactly **one** `chunks` row are inserted, with
+   `embedding: null`.
+
+   *Why not chunk+embed a CSV like a PDF?* A CSV upload only needs to
+   answer questions about itself in the very next turn or two. Chunking it
+   into paragraph-sized pieces and vector-embedding each one (an extra
+   OpenAI call) risks a similarity search dropping the very rows/columns
+   the model needed for that turn's chart. Handing the model one complete,
+   bounded summary of the whole table is simpler, cheaper, and strictly
+   more reliable for "make a chart from this data" than a top-k retrieval
+   over row-shaped chunks would be. If a future large-CSV use case needs
+   true retrieval (e.g. thousands of rows too big to summarize), that's
+   flagged as future work rather than built speculatively now.
+
+`POST /api/chat` accepts an optional `documentId`, resolved by
+`rag/grounding.ts` into a text block appended to `SYSTEM_PROMPT` for that
+turn only (no change to the tool-use/validation/retry logic itself).
+`rag/retrieve.ts`'s `retrieveChunks` picks the retrieval mode per source
+automatically:
+- Chunks with a stored embedding (PDF) → embed the question, pgvector
+  cosine (`<=>`) nearest-neighbor query, top-k.
+- Chunks with **no** embedding (CSV) → returned directly, unconditionally
+  — there's exactly one, so there's nothing to rank, and this path never
+  calls `embedText`/OpenAI at all, so CSV grounding works even in an
+  Anthropic-only setup with no `OPENAI_API_KEY`.
 
 `apps/web`'s `/chat` page turns this into a stacking canvas
 (`apps/web/src/app/chat/page.tsx`): an upload control above the prompt bar
-calls `uploadDocument()` (`lib/api.ts`), shows upload/ready/error state,
-and once a document is ready every subsequent question passes its
-`sourceId` through as `documentId` — so the canvas accumulates a document
-overview plus grounded follow-up cards, all sharing the same source.
+accepts PDF or CSV, calls `uploadDocument()` (`lib/api.ts`), shows
+upload/ready/error state, and once a document is ready every subsequent
+question passes its `sourceId` through as `documentId` — so the canvas
+accumulates a document/data overview plus grounded follow-up cards, all
+sharing the same source.
+
+**Future work (explicitly out of scope for the hackathon deadline):**
+retrieval-scale CSV ingestion (chunked/embedded rows for datasets too
+large to summarize in ~4000 chars), and multi-file grounding (more than
+one active `documentId` per conversation).
 
 ## Request flow (3D / CopilotKit path) — as actually built
 

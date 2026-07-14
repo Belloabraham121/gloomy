@@ -1,3 +1,4 @@
+import { parseCsv, summarizeCsv } from "../csv/parse.js";
 import { getDb } from "../db/client.js";
 import { chunks, sources } from "../db/schema.js";
 import { chunkText } from "./chunk.js";
@@ -65,4 +66,50 @@ export async function ingestPdf(
   );
 
   return { sourceId: source.id, title, chunkCount: textChunks.length };
+}
+
+/**
+ * Parses a CSV, summarizes it into one compact context block, and stores
+ * it as a single `sources` row + one `chunks` row with a `null` embedding.
+ *
+ * Deliberately not the same pipeline as `ingestPdf`: a CSV upload only
+ * needs to answer questions about itself in the very next turn or two, so
+ * chunking it into paragraph-sized pieces and vector-embedding each one
+ * (an OpenAI call, plus a similarity search that can drop rows the model
+ * actually needed) buys nothing over handing the model the whole
+ * summarized table at once. Storing it with a `null` embedding piggybacks
+ * on the existing `sources`/`chunks` schema and `documentId` grounding
+ * flow without a migration; `retrieve.ts` returns null-embedding chunks
+ * directly, skipping the embed-the-query step entirely - so CSV grounding
+ * needs only a database, never `OPENAI_API_KEY` (see docs/architecture.md).
+ */
+export async function ingestCsv(
+  buffer: Buffer,
+  title: string,
+  sessionId?: string,
+): Promise<IngestResult> {
+  const db = getDb();
+  if (!db) throw new MissingDatabaseError();
+
+  const parsed = parseCsv(buffer.toString("utf-8"));
+  if (parsed.headers.length === 0 || parsed.rows.length === 0) {
+    throw new EmptyDocumentError(
+      "Could not find any header row and data rows in this CSV.",
+    );
+  }
+
+  const summary = summarizeCsv(parsed, title);
+
+  const [source] = await db
+    .insert(sources)
+    .values({ title, sessionId, status: "ready" })
+    .returning({ id: sources.id });
+
+  await db.insert(chunks).values({
+    sourceId: source.id,
+    content: summary,
+    embedding: null,
+  });
+
+  return { sourceId: source.id, title, chunkCount: 1 };
 }

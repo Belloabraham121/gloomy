@@ -10,9 +10,9 @@ optional Postgres + pgvector for cache / progress / PDF grounding (RAG).
 |---|---|---|
 | `GET` | `/health` | Liveness check → `{ ok: true, service }`. |
 | `GET` | `/.well-known/agent.json` (also `/agent`) | Machine-readable agent manifest: name, description, version, the 6 A2UI capabilities, endpoint URLs. Used for agent discovery / the OKX ASP listing. |
-| `POST` | `/api/chat` | `{ messages:[{role,content}], sessionId?, documentId? }` → one `{ component, props, provider, cached }` payload, validated against the A2UI Zod schema. Cache hit → returns immediately with `cached:true`, no LLM call. |
+| `POST` | `/api/chat` | `{ messages:[{role,content}], sessionId?, documentId? }` → one `{ component, props, provider, cached }` payload, validated against the A2UI Zod schema. `messages` is the full thread (capped server-side to the most recent 24) so follow-ups build on prior turns — see "Conversation history" in `docs/architecture.md`. Cache hit → returns immediately with `cached:true`, no LLM call. |
 | `POST` | `/api/agent/task` | Marketplace fulfillment: `{ task, jobId?, documentId? }` → `{ component, props, viewUrl, deliverMessage }`. `viewUrl` is a stateless public render link (`/d?p=…` on the web app); `deliverMessage` is ready for `onchainos agent deliver --message`. Optional auth via `AGENT_TASK_KEY` env + `x-agent-key` header. |
-| `POST` | `/api/documents` | Multipart PDF upload (field `file`) → `{ sourceId, title, chunkCount }`; ground later questions by passing that `documentId` to `/api/chat`. |
+| `POST` | `/api/documents` | Multipart PDF **or CSV** upload (field `file`) → `{ sourceId, title, chunkCount }`; ground later questions by passing that `documentId` to `/api/chat`. CSV is parsed (not RAG-embedded) into a compact real-data summary — see "Document upload + data grounding" in `docs/architecture.md`. |
 
 ### Provider selection (`src/llm/index.ts`)
 
@@ -91,7 +91,7 @@ write. Prerequisites and steps, taken directly from that skill's
 3. `onchainos agent upload --file <avatar>` → avatar CDN URL.
 4. Listing fields:
    - **Name**: `gloomy` (3–25 chars).
-   - **Description**: e.g. *"Turns a question or an uploaded PDF into one interactive, schema-validated learning component."* (≤500 chars).
+   - **Description**: e.g. *"Turns a question, a PDF, or a CSV dataset into one interactive, schema-validated learning component that remembers the conversation."* (≤500 chars).
    - **Service**: name (5–30-char noun phrase, e.g. "Interactive concept explainer") · 2-part description (what it does / what the caller provides) · **Type `A2MCP`** (HTTP API) · **Fee** digits only, USDT implied (e.g. `"10"`) · **Endpoint** = `https://<your-api-domain>/api/chat`.
 5. `onchainos agent validate-listing --role asp --name … --description … --service '[…]'` — QA pass.
 6. `onchainos agent create --role asp --name … --description … --picture <url> --service '[…]'` → new `#id`.
@@ -141,11 +141,13 @@ lane is `/api/chat`. One listing can carry both services.
 
 ## Testing
 
-`pnpm test`, 39 tests:
+`pnpm test`, 46 tests:
 - `src/llm/{anthropic,openai,provider}.test.ts` — mocked clients: valid tool
   call, unknown component, retry succeeds/fails, text-only, malformed JSON args,
   and provider selection logic.
 - `src/rag/{chunk,pdf}.test.ts` — chunker + real-PDF text extraction (no key needed).
+- `src/csv/parse.test.ts` — CSV parsing (quoted fields, CRLF, empty input) and
+  summary generation (numeric/text column stats, sample-row + total-length caps).
 - `src/payload-link.test.ts` + `src/routes/agent-task.test.ts` — deliverable
   link round-trip, URL safety, tamper/garbage rejection, and the fulfillment
   endpoint's link/auth helpers.

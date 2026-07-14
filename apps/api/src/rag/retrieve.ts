@@ -1,4 +1,4 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { getDb } from "../db/client.js";
 import { chunks } from "../db/schema.js";
 import { embedText } from "./embeddings.js";
@@ -8,10 +8,17 @@ export interface RetrievedChunk {
 }
 
 /**
- * Embeds the query and returns the k nearest chunks (pgvector cosine
- * distance, `<=>`) scoped to a single source document. Returns [] rather
- * than throwing if there's no database - callers decide whether an empty
- * grounding context is fatal.
+ * Returns the k nearest chunks for a source document, scoped to a single
+ * `sourceId`. Returns [] rather than throwing if there's no database -
+ * callers decide whether an empty grounding context is fatal.
+ *
+ * Two retrieval modes, picked per-source automatically:
+ * - Chunks with a stored embedding (PDF ingestion) get a real pgvector
+ *   cosine (`<=>`) nearest-neighbor query against the embedded query text.
+ * - Chunks with no embedding (CSV ingestion - see `ingest.ts`) are
+ *   returned as-is, unconditionally: there's usually just one, a complete
+ *   summary of the dataset, so there's nothing to rank and no need to
+ *   spend an embeddings call (or require `OPENAI_API_KEY`) just to fetch it.
  */
 export async function retrieveChunks(
   sourceId: string,
@@ -20,6 +27,12 @@ export async function retrieveChunks(
 ): Promise<RetrievedChunk[]> {
   const db = getDb();
   if (!db) return [];
+
+  const directRows = await db
+    .select({ content: chunks.content })
+    .from(chunks)
+    .where(and(eq(chunks.sourceId, sourceId), isNull(chunks.embedding)));
+  if (directRows.length > 0) return directRows;
 
   const queryEmbedding = await embedText(query);
 

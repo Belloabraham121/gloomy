@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: gloomy-postgres
+    environment:
+      POSTGRES_USER: gloomy
+      POSTGRES_PASSWORD: gloomy
+      POSTGRES_DB: gloomy_dev
+    ports:
+      # Host 5433 — local Postgres already owns 5432 on this machine.
+      - "5433:5432"
+    volumes:
+      - gloomy_pgdata:/var/lib/postgresql/data
+      - ./docker/init-pgvector.sql:/docker-entrypoint-initdb.d/01-pgvector.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gloomy -d gloomy_dev"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  gloomy_pgdata:

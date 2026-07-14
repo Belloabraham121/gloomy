@@ -3,6 +3,9 @@ import { eq } from "drizzle-orm";
 import type { A2uiPayload } from "@gloomy/a2ui-spec";
 import { getDb } from "../db/client.js";
 import { cacheEntries } from "../db/schema.js";
+import { createLogger } from "../log.js";
+
+const log = createLogger("api:cache");
 
 /**
  * Cache key hashes the normalized question together with the grounding
@@ -41,7 +44,7 @@ export async function getCachedResponse(
 
     return { component: row.component, props: row.props } as A2uiPayload;
   } catch (err) {
-    console.error("getCachedResponse failed (treating as miss):", err);
+    log.errorWith("getCachedResponse failed (treating as miss)", err);
     return null;
   }
 }
@@ -72,6 +75,6 @@ export async function setCachedResponse(
         set: { component: payload.component, props: payload.props },
       });
   } catch (err) {
-    console.error("setCachedResponse failed (ignored):", err);
+    log.errorWith("setCachedResponse failed (ignored)", err);
   }
 }

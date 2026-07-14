@@ -1,7 +1,10 @@
 import { eq } from "drizzle-orm";
 import { getDb } from "../db/client.js";
+import { createLogger } from "../log.js";
 import { sources } from "../db/schema.js";
 import { formatGroundingContext, retrieveChunks } from "./retrieve.js";
+
+const log = createLogger("api:grounding");
 
 /**
  * Resolves a documentId into a grounding block for the system prompt.
@@ -28,7 +31,7 @@ export async function buildGroundingContext(
     const relevantChunks = await retrieveChunks(documentId, question);
     return formatGroundingContext(relevantChunks, source.title);
   } catch (err) {
-    console.error("buildGroundingContext failed (ungrounded fallback):", err);
+    log.errorWith("buildGroundingContext failed (ungrounded fallback)", err);
     return null;
   }
 }

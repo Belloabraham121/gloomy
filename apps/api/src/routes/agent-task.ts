@@ -6,8 +6,11 @@ import {
   MissingApiKeyError,
   ToolUseError,
 } from "../llm/index.js";
+import { createLogger } from "../log.js";
 import { recordProgress } from "../progress/progress.js";
 import { buildGroundingContext } from "../rag/grounding.js";
+
+const log = createLogger("api:agent-task");
 
 /**
  * POST /api/agent/task - the marketplace fulfillment endpoint. After a task
@@ -108,7 +111,7 @@ agentTaskRouter.post("/", async (req, res) => {
       res.status(502).json({ error: err.message });
       return;
     }
-    console.error("agent task route failed:", err);
+    log.errorWith("agent task route failed", err);
     res.status(500).json({ error: "Internal error fulfilling task" });
   }
 });

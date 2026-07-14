@@ -1,8 +1,11 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import { createLogger } from "../log.js";
 import * as schema from "./schema.js";
 
 export type Database = ReturnType<typeof drizzle<typeof schema>>;
+
+const log = createLogger("api:db");
 
 let cachedDb: Database | null = null;
 let warnedOnce = false;
@@ -18,7 +21,7 @@ export function getDb(): Database | null {
   const url = process.env.DATABASE_URL;
   if (!url) {
     if (!warnedOnce) {
-      console.warn(
+      log.warn(
         "DATABASE_URL is not set - caching and progress tracking are disabled.",
       );
       warnedOnce = true;

@@ -8,6 +8,7 @@ import {
   uploadDocument,
   type ChatResponse,
 } from "@/lib/api";
+import { buildThreadMessages } from "@/lib/chat-history";
 import {
   type Conversation,
   deleteConversation,
@@ -87,12 +88,13 @@ export default function ChatPage() {
     if (!q.trim() || busy) return;
     setQuestion("");
     const id = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    const threadMessages = buildThreadMessages(entries, q);
     setEntries((prev) => [...prev, { id, question: q, status: "loading" }]);
 
     const documentId = document.kind === "ready" ? document.sourceId : undefined;
 
     try {
-      const response = await askQuestion(q, getStoredSessionId(), documentId);
+      const response = await askQuestion(threadMessages, getStoredSessionId(), documentId);
       if (response.sessionId) storeSessionId(response.sessionId);
       setEntries((prev) =>
         prev.map((e) => (e.id === id ? { ...e, status: "success", response } : e)),
@@ -113,8 +115,13 @@ export default function ChatPage() {
     e.target.value = "";
     if (!file) return;
 
-    if (file.type !== "application/pdf") {
-      setDocument({ kind: "error", message: "Only PDF files are supported right now." });
+    const isPdf = file.type === "application/pdf";
+    const isCsv =
+      file.type === "text/csv" ||
+      file.type === "application/vnd.ms-excel" ||
+      file.name.toLowerCase().endsWith(".csv");
+    if (!isPdf && !isCsv) {
+      setDocument({ kind: "error", message: "Only PDF or CSV files are supported right now." });
       return;
     }
 
@@ -269,18 +276,18 @@ export default function ChatPage() {
             <input
               ref={fileInputRef}
               type="file"
-              accept="application/pdf"
+              accept="application/pdf,text/csv,.csv"
               onChange={handleFileChange}
               className="a2ui-upload-input"
-              aria-label="Upload a PDF to ground the conversation"
+              aria-label="Upload a PDF or CSV to ground the conversation"
             />
             <button
               type="button"
               className="chat-attach"
               onClick={() => fileInputRef.current?.click()}
               disabled={document.kind === "uploading"}
-              aria-label="Attach a PDF"
-              title="Attach a PDF"
+              aria-label="Attach a PDF or CSV"
+              title="Attach a PDF or CSV"
             >
               {document.kind === "uploading" ? "…" : "＋"}
             </button>
