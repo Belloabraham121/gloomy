@@ -1,14 +1,10 @@
-import type { A2uiPayload } from "@gloomy/a2ui-spec";
-import {
-  getAnthropicClient,
-  runAnthropicToolUseTurn,
-} from "./anthropic.js";
-import { getOpenAIClient, runOpenAIToolUseTurn } from "./openai.js";
+import { getAnthropicClient, runAnthropicLangTurn } from "./anthropic.js";
+import { getOpenAIClient, runOpenAILangTurn } from "./openai.js";
 import { MissingApiKeyError, type ChatMessage } from "./shared.js";
 
 export {
+  LangGenerationError,
   MissingApiKeyError,
-  ToolUseError,
   type ChatMessage,
 } from "./shared.js";
 
@@ -16,10 +12,11 @@ export type LlmProviderName = "anthropic" | "openai";
 
 export interface LlmProvider {
   name: LlmProviderName;
-  runToolUseTurn: (
+  /** Runs one OpenUI Lang generation turn; returns the validated openui-lang source text. */
+  runLangTurn: (
     messages: ChatMessage[],
     groundingContext?: string,
-  ) => Promise<A2uiPayload>;
+  ) => Promise<string>;
 }
 
 /**
@@ -63,15 +60,15 @@ export function getLlmProvider(env: NodeJS.ProcessEnv = process.env): LlmProvide
   if (chosen === "anthropic") {
     return {
       name: "anthropic",
-      runToolUseTurn: (messages, groundingContext) =>
-        runAnthropicToolUseTurn(getAnthropicClient(), messages, groundingContext),
+      runLangTurn: (messages, groundingContext) =>
+        runAnthropicLangTurn(getAnthropicClient(), messages, groundingContext),
     };
   }
   if (chosen === "openai") {
     return {
       name: "openai",
-      runToolUseTurn: (messages, groundingContext) =>
-        runOpenAIToolUseTurn(getOpenAIClient(), messages, groundingContext),
+      runLangTurn: (messages, groundingContext) =>
+        runOpenAILangTurn(getOpenAIClient(), messages, groundingContext),
     };
   }
 

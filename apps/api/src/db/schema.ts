@@ -2,7 +2,6 @@ import { sql } from "drizzle-orm";
 import {
   boolean,
   index,
-  jsonb,
   pgTable,
   text,
   timestamp,
@@ -11,15 +10,19 @@ import {
 } from "drizzle-orm/pg-core";
 
 /**
- * Generated-component cache. Keyed on a hash of the question plus whatever
- * source material was used, so a repeat question skips Claude entirely.
- * See docs/architecture.md for the caching design note.
+ * Generated-response cache. Keyed on a hash of the question plus whatever
+ * source material was used, so a repeat question skips the LLM entirely.
+ * `lang` is an OpenUI Lang program (see docs/openui-migration.md) - before
+ * the OpenUI migration this table stored `component` (text) + `props`
+ * (jsonb) instead; that shape is gone, cache rows from before the
+ * migration are simply not readable anymore (cache is fully regenerable,
+ * never user data, so this is a deliberate non-backward-compatible
+ * migration - see the accompanying drizzle migration).
  */
 export const cacheEntries = pgTable("cache_entries", {
   id: uuid("id").primaryKey().defaultRandom(),
   cacheKey: text("cache_key").notNull().unique(),
-  component: text("component").notNull(),
-  props: jsonb("props").notNull(),
+  lang: text("lang").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true })
     .notNull()
     .defaultNow(),
@@ -45,7 +48,10 @@ export const progressEntries = pgTable(
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
     question: text("question").notNull(),
-    component: text("component").notNull(),
+    // Since a single response is now a whole Lang program (not one
+    // component), this holds a short comma-joined summary of the distinct
+    // component types used (e.g. "Stack, Chart, Table"), not one name.
+    components: text("components").notNull(),
     quizCorrect: boolean("quiz_correct"),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()

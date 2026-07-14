@@ -1,3 +1,4 @@
+import { summarizeLangComponents } from "@gloomy/a2ui-spec";
 import type { ChatMessage, ChatResponse } from "./api";
 import type { StoredEntry } from "./conversations";
 
@@ -12,19 +13,15 @@ function truncate(text: string, max: number): string {
 }
 
 /**
- * Prior assistant turns are never replayed as their full component/props
- * payload (that would balloon the request and isn't useful to the model
+ * Prior assistant turns are never replayed as their full openui-lang
+ * program (that would balloon the request and isn't useful to the model
  * as conversation text) - instead each becomes a short bracketed note the
- * system prompt knows how to read, e.g. `[assistant generated a Chart
- * titled "Q3 revenue"]`, so a follow-up can reference "it" meaningfully.
+ * system prompt knows how to read, e.g. `[assistant generated Stack,
+ * Chart, Table]`, so a follow-up can reference "it" meaningfully.
  */
 function describeAssistantTurn(response: ChatResponse): string {
-  const { component, props } = response;
-  const label =
-    component === "Quiz"
-      ? (props as { question: string }).question
-      : (props as { title: string }).title;
-  return `[assistant generated a ${component} titled "${truncate(label, MAX_LABEL_LENGTH)}"]`;
+  const summary = summarizeLangComponents(response.lang);
+  return `[assistant generated ${truncate(summary, MAX_LABEL_LENGTH)}]`;
 }
 
 /** Builds the full thread to send to /api/chat: capped prior turns

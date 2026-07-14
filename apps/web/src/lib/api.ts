@@ -1,5 +1,3 @@
-import type { A2uiPayload } from "@gloomy/a2ui-spec";
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
 
 export interface ChatMessage {
@@ -7,13 +5,19 @@ export interface ChatMessage {
   content: string;
 }
 
-export interface ChatSuccessResponse {
+/**
+ * `/api/chat`'s response contract (see docs/openui-migration.md): an
+ * OpenUI Lang program plus a `viewUrl` so non-web (e.g. OKX A2MCP) callers
+ * get a renderable link too, not just raw Lang text.
+ */
+export interface ChatResponse {
   threadId: string;
   sessionId?: string;
   cached: boolean;
+  provider?: "anthropic" | "openai";
+  lang: string;
+  viewUrl: string;
 }
-
-export type ChatResponse = ChatSuccessResponse & A2uiPayload;
 
 export class ChatApiError extends Error {
   constructor(

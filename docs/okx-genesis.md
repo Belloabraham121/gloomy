@@ -74,44 +74,51 @@ hand-rolling `onchainos` calls.
 ## 3. How gloomy fits (don't pivot — strengthen the existing pitch)
 
 gloomy is already a clean **Software Utility** ASP: it turns a question, an
-uploaded PDF, **or an uploaded CSV/dataset**, into one schema-validated
-interactive UI component (Diagram, StepThrough, Quiz, Simulation, Chart,
-FormulaStepper) via Claude/OpenAI tool-use, non-crypto, real utility, both
-`A2MCP` (`/api/chat`) and `A2A` (`/api/agent/task` marketplace lane) already
-implemented server-side. That's a genuinely complete ASP, not a hackathon
-stub — the gap is deployment + registration, not features.
+uploaded PDF, **or an uploaded CSV/dataset**, into a rich, multi-block
+interactive UI — layouts, charts, tables, markdown, real LaTeX, and
+gloomy's own teaching components (Diagram, StepThrough, Quiz, Simulation,
+FormulaStepper) composed together via **OpenUI Lang**, via Claude/OpenAI,
+non-crypto, real utility, both `A2MCP` (`/api/chat`) and `A2A`
+(`/api/agent/task` marketplace lane) already implemented server-side.
+That's a genuinely complete ASP, not a hackathon stub — the gap is
+deployment + registration, not features.
 
-**Two product gaps closed this session** (see `docs/architecture.md` for
-the implementation notes):
+**Product gaps closed this session** (see `docs/architecture.md` and
+`docs/openui-migration.md` for the implementation notes):
 1. **Conversation now compounds.** `/api/chat` accepts and uses the full
    thread history, not just the latest message, so "now chart that" / "make
-   it a quiz" builds on the component that was just shown instead of
-   starting over.
-2. **CSV → real data-driven Chart.** Upload a CSV and gloomy parses the
+   it a quiz" builds on what was just shown instead of starting over.
+2. **CSV → real data-driven charts.** Upload a CSV and gloomy parses the
    actual columns/rows into a compact summary (types, min/max/avg, sample
    rows) and grounds the next turn in it, so "chart these days" produces a
-   `Chart` populated from the real numbers in the file — not an invented
-   generic explanation box. This still returns exactly one interactive
-   component per turn, same contract as before; it's a stronger
-   demonstration of "fits the data" rather than a new kind of output.
+   chart populated from the real numbers in the file — not an invented
+   generic explanation box.
+3. **Migrated to OpenUI Lang.** Rather than one forced tool call per turn
+   (one of 6 fixed components), the model now composes a whole multi-block
+   answer — a title, supporting prose, and whichever data/teaching
+   components actually fit the question, laid out together — rendered
+   through OpenUI's own `<Renderer>`. `/api/chat` and `/api/agent/task` now
+   return `{ lang, viewUrl, ... }`; `viewUrl` still works exactly as before
+   for the OKX deliverable flow below.
 
 **3 ways to strengthen the submission without inventing a new product:**
 
 1. **Make the demo instantly legible.** The `viewUrl` (`/d?p=…`) is a
-   stateless, shareable render of *one* interactive component — perfect for
-   the required X demo: ask gloomy a question, screen-record the component
-   appearing, drop the `/d?p=…` link in the reply so judges can interact with
-   it live instead of just watching a video.
+   stateless, shareable render of the whole generated UI — perfect for the
+   required X demo: ask gloomy a question, screen-record the multi-block
+   answer appearing, drop the `/d?p=…` link in the reply so judges can
+   interact with it live instead of just watching a video.
 2. **Lean on "Revenue Rocket" mechanics.** The listing already supports a fee
    (`onchainos agent create --fee "10"` etc.) — pick a small non-zero fee for
    the marketplace `A2A` service so real task completions during the judging
    window count as qualified revenue, not just registration.
 3. **Sharpen the one-line pitch for non-crypto judges** (the hackathon is
    explicitly open beyond crypto): *"Ask any question, upload a PDF or a
-   CSV — get back one interactive, data-aware lesson (diagram, quiz,
-   step-through, simulation, chart) that remembers the conversation,
-   instead of a wall of text."* Lead with that on X and in the marketplace
-   description; the AI/agent/onchain plumbing is the "how", not the pitch.
+   CSV — get back a rich, interactive lesson (diagrams, charts, quizzes,
+   step-throughs, simulations, real formulas) that remembers the
+   conversation, instead of a wall of text."* Lead with that on X and in
+   the marketplace description; the AI/agent/onchain plumbing is the "how",
+   not the pitch.
 
 ## 4. Compressed prep plan (≈3 days left, not 7)
 
@@ -183,7 +190,7 @@ onchainos agent upload --file apps/web/public/gloomy-asp-avatar.png
 | Field | Value |
 |---|---|
 | Name | `gloomy` (3–25 chars) |
-| Description | "Turns a question, a PDF, or a CSV dataset into one interactive, schema-validated learning component that remembers the conversation." (≤500 chars) |
+| Description | "Turns a question, a PDF, or a CSV dataset into a rich, interactive learning UI (diagrams, charts, quizzes, simulations, real formulas) that remembers the conversation." (≤500 chars) |
 | Service name | e.g. `Interactive concept explainer` (5–30 char noun phrase) |
 | Service type | `A2MCP` for the direct API; add a second service entry with type `A2A` for the marketplace task lane (both can live on one listing) |
 | Fee | digits only, USDT implied — e.g. `"10"` (non-zero recommended, see §3.2) |
@@ -193,13 +200,13 @@ onchainos agent upload --file apps/web/public/gloomy-asp-avatar.png
 # 5. QA pass before writing on-chain
 onchainos agent validate-listing --role asp \
   --name "gloomy" \
-  --description "Turns a question, a PDF, or a CSV dataset into one interactive, schema-validated learning component that remembers the conversation." \
+  --description "Turns a question, a PDF, or a CSV dataset into a rich, interactive learning UI (diagrams, charts, quizzes, simulations, real formulas) that remembers the conversation." \
   --service '[{"name":"Interactive concept explainer","type":"A2MCP","fee":"10","endpoint":"https://<your-api-domain>/api/chat"}]'
 
 # 6. The single on-chain write — confirm the wallet prompt when it appears
 onchainos agent create --role asp \
   --name "gloomy" \
-  --description "Turns a question, a PDF, or a CSV dataset into one interactive, schema-validated learning component that remembers the conversation." \
+  --description "Turns a question, a PDF, or a CSV dataset into a rich, interactive learning UI (diagrams, charts, quizzes, simulations, real formulas) that remembers the conversation." \
   --picture "<CDN URL from step 3>" \
   --service '[{"name":"Interactive concept explainer","type":"A2MCP","fee":"10","endpoint":"https://<your-api-domain>/api/chat"}]'
 # → returns a new #id

@@ -1,5 +1,6 @@
 import { Router } from "express";
-import { a2uiRegistry, type A2uiComponentName } from "@gloomy/a2ui-spec";
+import { customComponentSpecs } from "@gloomy/a2ui-spec";
+import { OPENUI_COMPONENT_NAMES } from "../llm/generated/openui-contract.js";
 
 /**
  * Machine-readable agent descriptor, served at both `/.well-known/agent.json`
@@ -12,35 +13,37 @@ export const agentRouter = Router();
 const VERSION = process.env.npm_package_version ?? "0.0.1";
 
 function buildManifest(baseUrl: string) {
-  const capabilities = (
-    Object.keys(a2uiRegistry) as A2uiComponentName[]
-  ).map((name) => ({
+  const customDescriptions = Object.fromEntries(
+    customComponentSpecs.map((c) => [c.name, c.description]),
+  );
+  const capabilities = OPENUI_COMPONENT_NAMES.map((name) => ({
     component: name,
-    description: a2uiRegistry[name].description,
+    description: customDescriptions[name] ?? undefined,
   }));
 
   return {
     name: "gloomy",
     displayName: "gloomy",
     description:
-      "A generative learning agent: ask a question (or upload a PDF) and get back one interactive, schema-validated UI component - a diagram, step-through, quiz, simulation, chart, or formula stepper - instead of a wall of text.",
+      "A generative learning agent: ask a question (or upload a PDF/CSV) and get back a rich, multi-block interactive UI - layouts, charts, tables, markdown, real LaTeX, and gloomy's own teaching components (diagrams, step-throughs, quizzes, simulations) composed together via OpenUI Lang - instead of a wall of text.",
     version: VERSION,
     // The service type: a plain HTTPS API (OKX ASP calls this "A2MCP").
     serviceType: "api",
+    uiTransport: "openui-lang",
     endpoints: {
       chat: {
         method: "POST",
         path: "/api/chat",
         url: `${baseUrl}/api/chat`,
         description:
-          "Send { messages: [{ role, content }], sessionId?, documentId? }; receive one { component, props } payload validated against the A2UI schema.",
+          "Send { messages: [{ role, content }], sessionId?, documentId? }; receive { lang, viewUrl, provider?, cached } - `lang` is an OpenUI Lang program (render with @openuidev/react-lang's Renderer), `viewUrl` is a ready-to-open link for callers with no OpenUI renderer.",
       },
       task: {
         method: "POST",
         path: "/api/agent/task",
         url: `${baseUrl}/api/agent/task`,
         description:
-          "Marketplace fulfillment: send { task, jobId?, documentId? } after job_accepted; receive { component, props, viewUrl, deliverMessage } - deliverMessage is ready for `onchainos agent deliver --message`.",
+          "Marketplace fulfillment: send { task, jobId?, documentId? } after job_accepted; receive { lang, viewUrl, deliverMessage } - deliverMessage is ready for `onchainos agent deliver --message`, viewUrl renders the full multi-block UI for the buyer.",
       },
       documents: {
         method: "POST",

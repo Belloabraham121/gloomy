@@ -1,6 +1,12 @@
 import type { Metadata, Viewport } from "next";
 import { Bricolage_Grotesque, Instrument_Serif } from "next/font/google";
+import { ThemeProvider } from "@/components/OpenUiThemeProvider";
 import { ShellHeader } from "@/components/ShellHeader";
+// OpenUI's component styles (Stack/Card/Charts/Table/...) and KaTeX's math
+// styles, both unlayered - loaded before globals.css so gloomy's own tokens
+// win any (unlikely) class-name overlap. See docs/openui-migration.md.
+import "@openuidev/react-ui/styles/index.css";
+import "katex/dist/katex.min.css";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -32,8 +38,10 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${display.variable} ${serif.variable}`}>
       <body>
-        <ShellHeader />
-        {children}
+        <ThemeProvider mode="dark">
+          <ShellHeader />
+          {children}
+        </ThemeProvider>
       </body>
     </html>
   );

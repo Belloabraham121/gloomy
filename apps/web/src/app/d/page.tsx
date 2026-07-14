@@ -3,21 +3,24 @@
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useMemo } from "react";
-import { decodePayload, type A2uiPayload } from "@gloomy/a2ui-spec";
+import { decodePayload, type A2uiDeliverable } from "@gloomy/a2ui-spec";
 import { A2uiRenderer } from "@/components/A2uiRenderer";
 
 /**
- * Public deliverable viewer: renders a { component, props } payload encoded
- * directly into the URL (?p=...) - the link a marketplace buyer receives
- * when gloomy delivers a task. Stateless: no storage behind it, and the
- * payload is schema-validated by decodePayload before anything renders.
+ * Public deliverable viewer: renders a payload encoded directly into the
+ * URL (?p=...) - the link a marketplace buyer (OKX ASP) receives when
+ * gloomy delivers a task, or a non-web A2MCP caller gets back from
+ * `/api/chat`. Stateless: no storage behind it, and the payload is
+ * schema-validated by decodePayload before anything renders. Handles both
+ * the current OpenUI Lang contract and pre-migration `{component, props}`
+ * links - see docs/openui-migration.md.
  */
 function DeliverableView() {
   const searchParams = useSearchParams();
   const encoded = searchParams.get("p");
 
   const result = useMemo<
-    { ok: true; payload: A2uiPayload } | { ok: false; message: string }
+    { ok: true; payload: A2uiDeliverable } | { ok: false; message: string }
   >(() => {
     if (!encoded) {
       return { ok: false, message: "This link is missing its payload." };
@@ -38,7 +41,7 @@ function DeliverableView() {
 
       {result.ok ? (
         <div className="lv3-stage deliverable-stage">
-          <A2uiRenderer payload={result.payload} />
+          <A2uiRenderer deliverable={result.payload} />
         </div>
       ) : (
         <div className="status error">{result.message}</div>

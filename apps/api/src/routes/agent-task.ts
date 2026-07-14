@@ -1,10 +1,10 @@
 import { Router } from "express";
-import { encodePayload, type A2uiPayload } from "@gloomy/a2ui-spec";
+import { encodeLang, summarizeLangComponents } from "@gloomy/a2ui-spec";
 import { getCachedResponse, setCachedResponse } from "../cache/cache.js";
 import {
   getLlmProvider,
+  LangGenerationError,
   MissingApiKeyError,
-  ToolUseError,
 } from "../llm/index.js";
 import { createLogger } from "../log.js";
 import { recordProgress } from "../progress/progress.js";
@@ -17,7 +17,7 @@ const log = createLogger("api:agent-task");
  * reaches job_accepted, the ASP operator session calls this once with the
  * job description; the response carries a self-contained view URL and a
  * ready-to-paste message for `onchainos agent deliver`. Reuses the exact
- * cache -> grounding -> tool-use machinery of /api/chat.
+ * cache -> grounding -> generation machinery of /api/chat.
  */
 export const agentTaskRouter = Router();
 
@@ -29,12 +29,12 @@ interface AgentTaskBody {
 
 /** Builds the stateless deliverable link + deliver-ready message. Exported for tests. */
 export function buildDeliverable(
-  payload: A2uiPayload,
+  lang: string,
   webUrl: string | undefined,
 ): { viewUrl: string; deliverMessage: string } {
-  const path = `/d?p=${encodePayload(payload)}`;
+  const path = `/d?p=${encodeLang(lang)}`;
   const viewUrl = webUrl ? `${webUrl.replace(/\/+$/, "")}${path}` : path;
-  const deliverMessage = `Task completed - gloomy generated an interactive ${payload.component} answering the request. Open it here: ${viewUrl}`;
+  const deliverMessage = `Task completed - gloomy generated an interactive UI (${summarizeLangComponents(lang)}) answering the request. Open it here: ${viewUrl}`;
   return { viewUrl, deliverMessage };
 }
 
@@ -62,13 +62,13 @@ agentTaskRouter.post("/", async (req, res) => {
 
   const webUrl = process.env.PUBLIC_WEB_URL;
 
-  const respond = (payload: A2uiPayload, cached: boolean, provider?: string) => {
-    const { viewUrl, deliverMessage } = buildDeliverable(payload, webUrl);
+  const respond = (lang: string, cached: boolean, provider?: string) => {
+    const { viewUrl, deliverMessage } = buildDeliverable(lang, webUrl);
     res.json({
       jobId: body.jobId ?? undefined,
       cached,
       provider,
-      ...payload,
+      lang,
       viewUrl,
       deliverMessage,
       ...(webUrl
@@ -79,10 +79,10 @@ agentTaskRouter.post("/", async (req, res) => {
     });
   };
 
-  const cached = await getCachedResponse(task, body.documentId);
-  if (cached) {
-    await recordProgress({ question: task, component: cached.component });
-    respond(cached, true);
+  const cachedLang = await getCachedResponse(task, body.documentId);
+  if (cachedLang) {
+    await recordProgress({ question: task, components: summarizeLangComponents(cachedLang) });
+    respond(cachedLang, true);
     return;
   }
 
@@ -99,15 +99,15 @@ agentTaskRouter.post("/", async (req, res) => {
 
   try {
     const groundingContext = await buildGroundingContext(body.documentId, task);
-    const payload = await provider.runToolUseTurn(
+    const lang = await provider.runLangTurn(
       [{ role: "user", content: task }],
       groundingContext ?? undefined,
     );
-    await setCachedResponse(task, payload, body.documentId);
-    await recordProgress({ question: task, component: payload.component });
-    respond(payload, false, provider.name);
+    await setCachedResponse(task, lang, body.documentId);
+    await recordProgress({ question: task, components: summarizeLangComponents(lang) });
+    respond(lang, false, provider.name);
   } catch (err) {
-    if (err instanceof ToolUseError) {
+    if (err instanceof LangGenerationError) {
       res.status(502).json({ error: err.message });
       return;
     }

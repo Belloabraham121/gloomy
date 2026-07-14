@@ -15,6 +15,13 @@
       "when": 1783760873808,
       "tag": "0001_normal_slipstream",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1784158800000,
+      "tag": "0002_openui_lang",
+      "breakpoints": true
     }
   ]
 }

@@ -1,24 +1,10 @@
 import OpenAI from "openai";
-import type { A2uiPayload } from "@gloomy/a2ui-spec";
-import {
-  ToolUseError,
-  validatePayload,
-  type ChatMessage,
-} from "./shared.js";
+import { LangGenerationError, validateLang, type ChatMessage } from "./shared.js";
 import { SYSTEM_PROMPT } from "./system-prompt.js";
-import { a2uiToolSpecs } from "./tools.js";
 
 export const OPENAI_MODEL = process.env.OPENAI_MODEL ?? "gpt-4o";
 
-const openaiTools: OpenAI.Chat.Completions.ChatCompletionTool[] =
-  a2uiToolSpecs.map((spec) => ({
-    type: "function" as const,
-    function: {
-      name: spec.name,
-      description: spec.description,
-      parameters: spec.jsonSchema,
-    },
-  }));
+const MAX_TOKENS = 4096;
 
 /** The subset of the OpenAI SDK this module calls, so tests can pass a fake. */
 export interface OpenAIChatClient {
@@ -44,47 +30,22 @@ export function getOpenAIClient(): OpenAI {
   return cachedClient;
 }
 
-interface FunctionCall {
-  id: string;
-  name: string;
-  argumentsJson: string;
-}
-
-function extractFunctionCall(
-  completion: OpenAI.Chat.Completions.ChatCompletion,
-): FunctionCall | null {
-  const call = completion.choices[0]?.message?.tool_calls?.find(
-    (c) => c.type === "function",
-  );
-  if (!call || call.type !== "function") return null;
-  return {
-    id: call.id,
-    name: call.function.name,
-    argumentsJson: call.function.arguments,
-  };
-}
-
-function parseArguments(call: FunctionCall): unknown {
-  try {
-    return JSON.parse(call.argumentsJson);
-  } catch {
-    throw new ToolUseError(
-      `Arguments for ${call.name} were not valid JSON`,
-    );
-  }
+function extractText(completion: OpenAI.Chat.Completions.ChatCompletion): string {
+  return (completion.choices[0]?.message?.content ?? "").trim();
 }
 
 /**
- * One turn of the A2UI tool-use loop against OpenAI (function calling):
- * same contract as the Anthropic handler — validate against the shared
- * Zod schema, one retry with the validation error fed back as a tool
- * message if the first attempt was malformed.
+ * One turn of the OpenUI Lang generation loop against OpenAI: same
+ * contract as the Anthropic handler - plain chat completion (no function
+ * calling), validate against the shared openui-lang parser, one retry
+ * with the validation error fed back as a follow-up user message if the
+ * first attempt didn't parse.
  */
-export async function runOpenAIToolUseTurn(
+export async function runOpenAILangTurn(
   client: OpenAIChatClient,
   messages: ChatMessage[],
   groundingContext?: string,
-): Promise<A2uiPayload> {
+): Promise<string> {
   const system = groundingContext
     ? `${SYSTEM_PROMPT}\n\n${groundingContext}`
     : SYSTEM_PROMPT;
@@ -96,42 +57,29 @@ export async function runOpenAIToolUseTurn(
 
   const first = await client.chat.completions.create({
     model: OPENAI_MODEL,
-    max_tokens: 1024,
-    tools: openaiTools,
-    tool_choice: "required",
+    max_tokens: MAX_TOKENS,
     messages: openaiMessages,
   });
 
-  const firstCall = extractFunctionCall(first);
-  if (!firstCall) {
-    throw new ToolUseError("OpenAI did not call a tool");
-  }
-
+  const text = extractText(first);
   try {
-    return validatePayload(firstCall.name, parseArguments(firstCall));
+    return validateLang(text);
   } catch (err) {
-    if (!(err instanceof ToolUseError)) throw err;
+    if (!(err instanceof LangGenerationError)) throw err;
 
     const retry = await client.chat.completions.create({
       model: OPENAI_MODEL,
-      max_tokens: 1024,
-      tools: openaiTools,
-      tool_choice: "required",
+      max_tokens: MAX_TOKENS,
       messages: [
         ...openaiMessages,
-        first.choices[0].message,
+        { role: "assistant", content: text || "(empty response)" },
         {
-          role: "tool",
-          tool_call_id: firstCall.id,
-          content: `Error: ${err.message}. Call the tool again with corrected arguments.`,
+          role: "user",
+          content: `Your last response failed validation: ${err.message}. Respond again with ONLY corrected openui-lang - no explanation, no markdown code fences.`,
         },
       ],
     });
 
-    const retryCall = extractFunctionCall(retry);
-    if (!retryCall) {
-      throw new ToolUseError("OpenAI did not call a tool on retry");
-    }
-    return validatePayload(retryCall.name, parseArguments(retryCall));
+    return validateLang(extractText(retry));
   }
 }

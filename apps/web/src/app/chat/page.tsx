@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { A2uiRenderer } from "@/components/A2uiRenderer";
+import { A2uiLangView } from "@/components/A2uiRenderer";
 import {
   askQuestion,
   ChatApiError,
@@ -237,7 +237,7 @@ export default function ChatPage() {
                         {entry.response.cached && (
                           <p className="a2ui-chat-cached-note">Served from cache</p>
                         )}
-                        <A2uiRenderer payload={entry.response} />
+                        <A2uiLangView lang={entry.response.lang} />
                       </div>
                     </div>
                   )}

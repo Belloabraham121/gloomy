@@ -1,21 +1,14 @@
 import Anthropic from "@anthropic-ai/sdk";
-import type { A2uiPayload } from "@gloomy/a2ui-spec";
-import {
-  ToolUseError,
-  validatePayload,
-  type ChatMessage,
-} from "./shared.js";
+import { LangGenerationError, validateLang, type ChatMessage } from "./shared.js";
 import { SYSTEM_PROMPT } from "./system-prompt.js";
-import { a2uiToolSpecs } from "./tools.js";
 
 export const ANTHROPIC_MODEL =
   process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
 
-const anthropicTools: Anthropic.Tool[] = a2uiToolSpecs.map((spec) => ({
-  name: spec.name,
-  description: spec.description,
-  input_schema: spec.jsonSchema as Anthropic.Tool["input_schema"],
-}));
+// Rich multi-block UI needs more room than the old single-tool-call
+// payload did - a Stack of several components easily runs a few hundred
+// tokens of openui-lang.
+const MAX_TOKENS = 4096;
 
 /** The subset of the Anthropic SDK this module calls, so tests can pass a fake. */
 export interface AnthropicMessagesClient {
@@ -39,23 +32,26 @@ export function getAnthropicClient(): Anthropic {
   return cachedClient;
 }
 
-function extractToolUse(
-  message: Anthropic.Message,
-): Anthropic.ToolUseBlock | null {
-  const block = message.content.find((b) => b.type === "tool_use");
-  return (block as Anthropic.ToolUseBlock | undefined) ?? null;
+function extractText(message: Anthropic.Message): string {
+  return message.content
+    .filter((b): b is Anthropic.TextBlock => b.type === "text")
+    .map((b) => b.text)
+    .join("\n")
+    .trim();
 }
 
 /**
- * One turn of the A2UI tool-use loop against Claude: ask it to pick a
- * component, validate the arguments, and retry once with the validation
- * error fed back as a tool_result if the first attempt was malformed.
+ * One turn of the OpenUI Lang generation loop against Claude: ask it to
+ * respond entirely in openui-lang (system prompt sets the contract, no
+ * tool_choice forcing needed since there's no tool call anymore), validate
+ * the result, and retry once with the validation error fed back as a plain
+ * follow-up message if the first attempt didn't parse.
  */
-export async function runAnthropicToolUseTurn(
+export async function runAnthropicLangTurn(
   client: AnthropicMessagesClient,
   messages: ChatMessage[],
   groundingContext?: string,
-): Promise<A2uiPayload> {
+): Promise<string> {
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
@@ -66,50 +62,31 @@ export async function runAnthropicToolUseTurn(
 
   const first = await client.messages.create({
     model: ANTHROPIC_MODEL,
-    max_tokens: 1024,
+    max_tokens: MAX_TOKENS,
     system,
-    tools: anthropicTools,
-    tool_choice: { type: "any" },
     messages: anthropicMessages,
   });
 
-  const firstToolUse = extractToolUse(first);
-  if (!firstToolUse) {
-    throw new ToolUseError("Claude did not call a tool");
-  }
-
+  const text = extractText(first);
   try {
-    return validatePayload(firstToolUse.name, firstToolUse.input);
+    return validateLang(text);
   } catch (err) {
-    if (!(err instanceof ToolUseError)) throw err;
+    if (!(err instanceof LangGenerationError)) throw err;
 
     const retry = await client.messages.create({
       model: ANTHROPIC_MODEL,
-      max_tokens: 1024,
+      max_tokens: MAX_TOKENS,
       system,
-      tools: anthropicTools,
-      tool_choice: { type: "any" },
       messages: [
         ...anthropicMessages,
-        { role: "assistant", content: first.content },
+        { role: "assistant", content: text || "(empty response)" },
         {
           role: "user",
-          content: [
-            {
-              type: "tool_result",
-              tool_use_id: firstToolUse.id,
-              content: err.message,
-              is_error: true,
-            },
-          ],
+          content: `Your last response failed validation: ${err.message}\n\nRespond again with ONLY corrected openui-lang - no explanation, no markdown code fences.`,
         },
       ],
     });
 
-    const retryToolUse = extractToolUse(retry);
-    if (!retryToolUse) {
-      throw new ToolUseError("Claude did not call a tool on retry");
-    }
-    return validatePayload(retryToolUse.name, retryToolUse.input);
+    return validateLang(extractText(retry));
   }
 }

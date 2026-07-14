@@ -1,6 +1,5 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
-import type { A2uiPayload } from "@gloomy/a2ui-spec";
 import { getDb } from "../db/client.js";
 import { cacheEntries } from "../db/schema.js";
 import { createLogger } from "../log.js";
@@ -22,12 +21,13 @@ export function cacheKeyFor(question: string, documentId?: string): string {
 /**
  * Best-effort read: a missing/unreachable database is treated as a cache
  * miss (returns null), never a thrown error. A configured-but-down Postgres
- * must not take out the chat endpoint on a public deploy.
+ * must not take out the chat endpoint on a public deploy. Returns the
+ * cached OpenUI Lang program (see docs/openui-migration.md).
  */
 export async function getCachedResponse(
   question: string,
   documentId?: string,
-): Promise<A2uiPayload | null> {
+): Promise<string | null> {
   const db = getDb();
   if (!db) return null;
 
@@ -39,10 +39,7 @@ export async function getCachedResponse(
       .where(eq(cacheEntries.cacheKey, key))
       .limit(1);
 
-    const row = rows[0];
-    if (!row) return null;
-
-    return { component: row.component, props: row.props } as A2uiPayload;
+    return rows[0]?.lang ?? null;
   } catch (err) {
     log.errorWith("getCachedResponse failed (treating as miss)", err);
     return null;
@@ -55,7 +52,7 @@ export async function getCachedResponse(
  */
 export async function setCachedResponse(
   question: string,
-  payload: A2uiPayload,
+  lang: string,
   documentId?: string,
 ): Promise<void> {
   const db = getDb();
@@ -65,14 +62,10 @@ export async function setCachedResponse(
     const key = cacheKeyFor(question, documentId);
     await db
       .insert(cacheEntries)
-      .values({
-        cacheKey: key,
-        component: payload.component,
-        props: payload.props,
-      })
+      .values({ cacheKey: key, lang })
       .onConflictDoUpdate({
         target: cacheEntries.cacheKey,
-        set: { component: payload.component, props: payload.props },
+        set: { lang },
       });
   } catch (err) {
     log.errorWith("setCachedResponse failed (ignored)", err);

@@ -1,41 +1,14 @@
 import { describe, expect, it } from "vitest";
 import type OpenAI from "openai";
-import { runOpenAIToolUseTurn, type OpenAIChatClient } from "./openai.js";
-import { ToolUseError } from "./shared.js";
-import { validQuizInput } from "./test-fixtures.js";
+import { runOpenAILangTurn, type OpenAIChatClient } from "./openai.js";
+import { LangGenerationError } from "./shared.js";
 
-function functionCallCompletion(
-  name: string,
-  args: string,
-): OpenAI.Chat.Completions.ChatCompletion {
-  return {
-    id: "chatcmpl_test",
-    object: "chat.completion",
-    created: 0,
-    model: "gpt-4o",
-    choices: [
-      {
-        index: 0,
-        finish_reason: "tool_calls",
-        logprobs: null,
-        message: {
-          role: "assistant",
-          content: null,
-          refusal: null,
-          tool_calls: [
-            {
-              id: "call_test",
-              type: "function",
-              function: { name, arguments: args },
-            },
-          ],
-        },
-      },
-    ],
-  } as unknown as OpenAI.Chat.Completions.ChatCompletion;
-}
+const VALID_LANG = `title = TextContent("2 + 2", "large-heavy")
+quiz = Quiz("What is 2 + 2?", [{"id":"a","label":"3"},{"id":"b","label":"4"}], "b", "2 + 2 = 4.")
+wrap = Stack([quiz])
+root = Stack([title, wrap])`;
 
-function textOnlyCompletion(): OpenAI.Chat.Completions.ChatCompletion {
+function textCompletion(content: string): OpenAI.Chat.Completions.ChatCompletion {
   return {
     id: "chatcmpl_test",
     object: "chat.completion",
@@ -46,139 +19,78 @@ function textOnlyCompletion(): OpenAI.Chat.Completions.ChatCompletion {
         index: 0,
         finish_reason: "stop",
         logprobs: null,
-        message: {
-          role: "assistant",
-          content: "I refuse to call a tool.",
-          refusal: null,
-        },
+        message: { role: "assistant", content, refusal: null },
       },
     ],
   } as unknown as OpenAI.Chat.Completions.ChatCompletion;
 }
 
-describe("runOpenAIToolUseTurn", () => {
-  it("returns the validated component and props on a well-formed first response", async () => {
+describe("runOpenAILangTurn", () => {
+  it("returns the validated openui-lang on a well-formed first response", async () => {
+    const client: OpenAIChatClient = {
+      chat: { completions: { create: async () => textCompletion(VALID_LANG) } },
+    };
+
+    const result = await runOpenAILangTurn(client, [
+      { role: "user", content: "Quiz me on basic arithmetic" },
+    ]);
+
+    expect(result).toBe(VALID_LANG);
+  });
+
+  it("strips a markdown code fence the model added despite instructions not to", async () => {
     const client: OpenAIChatClient = {
       chat: {
         completions: {
-          create: async () =>
-            functionCallCompletion("Quiz", JSON.stringify(validQuizInput)),
+          create: async () => textCompletion("```\n" + VALID_LANG + "\n```"),
         },
       },
     };
 
-    const result = await runOpenAIToolUseTurn(client, [
-      { role: "user", content: "Quiz me on basic arithmetic" },
-    ]);
-
-    expect(result.component).toBe("Quiz");
-    expect(result.props).toEqual(validQuizInput);
+    const result = await runOpenAILangTurn(client, [{ role: "user", content: "hi" }]);
+    expect(result).toBe(VALID_LANG);
   });
 
-  it("rejects a tool call naming a component outside the catalog", async () => {
+  it("rejects a program referencing a component outside the library", async () => {
     const client: OpenAIChatClient = {
       chat: {
         completions: {
-          create: async () => functionCallCompletion("NotARealComponent", "{}"),
+          create: async () => textCompletion('root = NotARealComponent("x")'),
         },
       },
     };
 
     await expect(
-      runOpenAIToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
+      runOpenAILangTurn(client, [{ role: "user", content: "hi" }]),
+    ).rejects.toThrow(LangGenerationError);
   });
 
-  it("retries once when the first response fails schema validation, and succeeds if the retry is valid", async () => {
+  it("retries once when the first response fails to parse, and succeeds if the retry is valid", async () => {
     let callCount = 0;
     const client: OpenAIChatClient = {
       chat: {
         completions: {
           create: async () => {
             callCount++;
-            if (callCount === 1) {
-              return functionCallCompletion(
-                "Quiz",
-                JSON.stringify({
-                  question: "What is 2 + 2?",
-                  choices: [{ id: "a", label: "4" }],
-                }),
-              );
-            }
-            return functionCallCompletion(
-              "Quiz",
-              JSON.stringify(validQuizInput),
-            );
+            return textCompletion(callCount === 1 ? "not lang at all" : VALID_LANG);
           },
         },
       },
     };
 
-    const result = await runOpenAIToolUseTurn(client, [
-      { role: "user", content: "Quiz me on basic arithmetic" },
-    ]);
+    const result = await runOpenAILangTurn(client, [{ role: "user", content: "hi" }]);
 
     expect(callCount).toBe(2);
-    expect(result.component).toBe("Quiz");
-    expect(result.props).toEqual(validQuizInput);
+    expect(result).toBe(VALID_LANG);
   });
 
-  it("retries when the arguments are not valid JSON at all", async () => {
-    let callCount = 0;
+  it("throws if the retry also fails to produce a resolvable root", async () => {
     const client: OpenAIChatClient = {
-      chat: {
-        completions: {
-          create: async () => {
-            callCount++;
-            if (callCount === 1) {
-              return functionCallCompletion("Quiz", "{not valid json!");
-            }
-            return functionCallCompletion(
-              "Quiz",
-              JSON.stringify(validQuizInput),
-            );
-          },
-        },
-      },
-    };
-
-    const result = await runOpenAIToolUseTurn(client, [
-      { role: "user", content: "hi" },
-    ]);
-
-    expect(callCount).toBe(2);
-    expect(result.component).toBe("Quiz");
-  });
-
-  it("throws if the retry also fails validation", async () => {
-    const client: OpenAIChatClient = {
-      chat: {
-        completions: {
-          create: async () =>
-            functionCallCompletion(
-              "Quiz",
-              JSON.stringify({ question: "incomplete" }),
-            ),
-        },
-      },
+      chat: { completions: { create: async () => textCompletion("") } },
     };
 
     await expect(
-      runOpenAIToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
-  });
-
-  it("throws a ToolUseError if OpenAI responds with text instead of a tool call", async () => {
-    const client: OpenAIChatClient = {
-      chat: {
-        completions: {
-          create: async () => textOnlyCompletion(),
-        },
-      },
-    };
-
-    await expect(
-      runOpenAIToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
+      runOpenAILangTurn(client, [{ role: "user", content: "hi" }]),
+    ).rejects.toThrow(LangGenerationError);
   });
 });

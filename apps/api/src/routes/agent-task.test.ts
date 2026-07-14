@@ -1,19 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { decodePayload, type A2uiPayload } from "@gloomy/a2ui-spec";
+import { decodePayload, isLangDeliverable } from "@gloomy/a2ui-spec";
 import { buildDeliverable, isAuthorized } from "./agent-task.js";
 
-const payload: A2uiPayload = {
-  component: "StepThrough",
-  props: {
-    title: "How a block gets added",
-    steps: [{ heading: "1. Broadcast", body: "A signed transaction is sent." }],
-  },
-};
+const lang =
+  'root = StepThrough("How a block gets added", [{"heading":"1. Broadcast","body":"A signed transaction is sent."}])';
 
 describe("buildDeliverable", () => {
   it("builds an absolute viewUrl when a web origin is configured", () => {
     const { viewUrl, deliverMessage } = buildDeliverable(
-      payload,
+      lang,
       "https://gloomy.example/",
     );
     expect(viewUrl).toMatch(/^https:\/\/gloomy\.example\/d\?p=[A-Za-z0-9_-]+$/);
@@ -22,15 +17,19 @@ describe("buildDeliverable", () => {
   });
 
   it("falls back to a relative path without a web origin", () => {
-    const { viewUrl } = buildDeliverable(payload, undefined);
+    const { viewUrl } = buildDeliverable(lang, undefined);
     expect(viewUrl).toMatch(/^\/d\?p=/);
   });
 
-  it("embeds a payload that decodes back to the original", () => {
-    const { viewUrl } = buildDeliverable(payload, "https://gloomy.example");
+  it("embeds a payload that decodes back to the original Lang", () => {
+    const { viewUrl } = buildDeliverable(lang, "https://gloomy.example");
     const encoded = new URL(viewUrl).searchParams.get("p");
     expect(encoded).toBeTruthy();
-    expect(decodePayload(encoded!)).toEqual(payload);
+    const decoded = decodePayload(encoded!);
+    expect(isLangDeliverable(decoded)).toBe(true);
+    if (isLangDeliverable(decoded)) {
+      expect(decoded.lang).toBe(lang);
+    }
   });
 });
 

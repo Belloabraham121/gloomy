@@ -1,33 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type Anthropic from "@anthropic-ai/sdk";
 import {
-  runAnthropicToolUseTurn,
+  runAnthropicLangTurn,
   type AnthropicMessagesClient,
 } from "./anthropic.js";
-import { ToolUseError } from "./shared.js";
-import { validQuizInput } from "./test-fixtures.js";
+import { LangGenerationError } from "./shared.js";
 
-function toolUseMessage(name: string, input: unknown): Anthropic.Message {
-  return {
-    id: "msg_test",
-    type: "message",
-    role: "assistant",
-    model: "claude-sonnet-4-5",
-    stop_reason: "tool_use",
-    stop_sequence: null,
-    usage: { input_tokens: 1, output_tokens: 1 },
-    content: [
-      {
-        type: "tool_use",
-        id: "toolu_test",
-        name,
-        input,
-      },
-    ],
-  } as unknown as Anthropic.Message;
-}
+const VALID_LANG = `title = TextContent("2 + 2", "large-heavy")
+quiz = Quiz("What is 2 + 2?", [{"id":"a","label":"3"},{"id":"b","label":"4"}], "b", "2 + 2 = 4.")
+wrap = Stack([quiz])
+root = Stack([title, wrap])`;
 
-function textOnlyMessage(): Anthropic.Message {
+function textMessage(text: string): Anthropic.Message {
   return {
     id: "msg_test",
     type: "message",
@@ -36,85 +20,82 @@ function textOnlyMessage(): Anthropic.Message {
     stop_reason: "end_turn",
     stop_sequence: null,
     usage: { input_tokens: 1, output_tokens: 1 },
-    content: [{ type: "text", text: "I refuse to call a tool." }],
+    content: [{ type: "text", text }],
   } as unknown as Anthropic.Message;
 }
 
-describe("runAnthropicToolUseTurn", () => {
-  it("returns the validated component and props on a well-formed first response", async () => {
+describe("runAnthropicLangTurn", () => {
+  it("returns the validated openui-lang on a well-formed first response", async () => {
     const client: AnthropicMessagesClient = {
       messages: {
-        create: async () => toolUseMessage("Quiz", validQuizInput),
+        create: async () => textMessage(VALID_LANG),
       },
     };
 
-    const result = await runAnthropicToolUseTurn(client, [
+    const result = await runAnthropicLangTurn(client, [
       { role: "user", content: "Quiz me on basic arithmetic" },
     ]);
 
-    expect(result.component).toBe("Quiz");
-    expect(result.props).toEqual(validQuizInput);
+    expect(result).toBe(VALID_LANG);
   });
 
-  it("rejects a tool call naming a component outside the catalog", async () => {
+  it("strips a markdown code fence the model added despite instructions not to", async () => {
     const client: AnthropicMessagesClient = {
       messages: {
-        create: async () => toolUseMessage("NotARealComponent", {}),
+        create: async () => textMessage("```openui-lang\n" + VALID_LANG + "\n```"),
+      },
+    };
+
+    const result = await runAnthropicLangTurn(client, [
+      { role: "user", content: "hi" },
+    ]);
+
+    expect(result).toBe(VALID_LANG);
+  });
+
+  it("rejects a program referencing a component outside the library", async () => {
+    const client: AnthropicMessagesClient = {
+      messages: {
+        create: async () => textMessage('root = NotARealComponent("x")'),
       },
     };
 
     await expect(
-      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
+      runAnthropicLangTurn(client, [{ role: "user", content: "hi" }]),
+    ).rejects.toThrow(LangGenerationError);
   });
 
-  it("retries once when the first response fails schema validation, and succeeds if the retry is valid", async () => {
+  it("retries once when the first response fails to parse, and succeeds if the retry is valid", async () => {
     let callCount = 0;
     const client: AnthropicMessagesClient = {
       messages: {
         create: async () => {
           callCount++;
           if (callCount === 1) {
-            return toolUseMessage("Quiz", {
-              question: "What is 2 + 2?",
-              choices: [{ id: "a", label: "4" }],
-            });
+            return textMessage("I refuse to answer in openui-lang.");
           }
-          return toolUseMessage("Quiz", validQuizInput);
+          return textMessage(VALID_LANG);
         },
       },
     };
 
-    const result = await runAnthropicToolUseTurn(client, [
+    const result = await runAnthropicLangTurn(client, [
       { role: "user", content: "Quiz me on basic arithmetic" },
     ]);
 
     expect(callCount).toBe(2);
-    expect(result.component).toBe("Quiz");
-    expect(result.props).toEqual(validQuizInput);
+    expect(result).toBe(VALID_LANG);
   });
 
-  it("throws if the retry also fails validation", async () => {
+  it("throws if the retry also fails to produce a resolvable root", async () => {
     const client: AnthropicMessagesClient = {
       messages: {
-        create: async () => toolUseMessage("Quiz", { question: "incomplete" }),
+        create: async () => textMessage(""),
       },
     };
 
     await expect(
-      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
-  });
-
-  it("throws a ToolUseError if Claude responds with text instead of a tool call", async () => {
-    const client: AnthropicMessagesClient = {
-      messages: {
-        create: async () => textOnlyMessage(),
-      },
-    };
-
-    await expect(
-      runAnthropicToolUseTurn(client, [{ role: "user", content: "hi" }]),
-    ).rejects.toThrow(ToolUseError);
+      runAnthropicLangTurn(client, [{ role: "user", content: "hi" }]),
+    ).rejects.toThrow(LangGenerationError);
   });
 });

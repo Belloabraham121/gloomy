@@ -1,9 +1,10 @@
 import { Router } from "express";
+import { encodeLang, summarizeLangComponents } from "@gloomy/a2ui-spec";
 import { getCachedResponse, setCachedResponse } from "../cache/cache.js";
 import {
   getLlmProvider,
+  LangGenerationError,
   MissingApiKeyError,
-  ToolUseError,
   type ChatMessage,
 } from "../llm/index.js";
 import { createLogger } from "../log.js";
@@ -28,6 +29,18 @@ interface ChatRequestBody {
   messages?: ChatMessage[];
 }
 
+/**
+ * Builds the `viewUrl` every response carries alongside the raw `lang` -
+ * so a non-web caller (an OKX A2MCP consumer hitting this endpoint
+ * directly, not through apps/web) still gets a renderable link, not just
+ * a string it has no renderer for. See docs/openui-migration.md.
+ */
+function buildViewUrl(lang: string): string {
+  const webUrl = process.env.PUBLIC_WEB_URL;
+  const path = `/d?p=${encodeLang(lang)}`;
+  return webUrl ? `${webUrl.replace(/\/+$/, "")}${path}` : path;
+}
+
 chatRouter.post("/", async (req, res) => {
   const body = req.body as ChatRequestBody;
   const threadId = body.threadId ?? "unknown-thread";
@@ -48,18 +61,19 @@ chatRouter.post("/", async (req, res) => {
   // exact same question asked with two different prior contexts can hit
   // the same cached component - is accepted for now; revisit if follow-up
   // caching turns out to matter (e.g. hash question + a digest of history).
-  const cached = await getCachedResponse(question, documentId);
-  if (cached) {
+  const cachedLang = await getCachedResponse(question, documentId);
+  if (cachedLang) {
     const sessionId = await recordProgress({
       sessionId: body.sessionId,
       question,
-      component: cached.component,
+      components: summarizeLangComponents(cachedLang),
     });
     res.json({
       threadId,
       sessionId: sessionId ?? undefined,
       cached: true,
-      ...cached,
+      lang: cachedLang,
+      viewUrl: buildViewUrl(cachedLang),
     });
     return;
   }
@@ -77,29 +91,30 @@ chatRouter.post("/", async (req, res) => {
 
   try {
     const groundingContext = await buildGroundingContext(documentId, question);
-    const payload = await provider.runToolUseTurn(
+    const lang = await provider.runLangTurn(
       messages,
       groundingContext ?? undefined,
     );
-    await setCachedResponse(question, payload, documentId);
+    await setCachedResponse(question, lang, documentId);
     const sessionId = await recordProgress({
       sessionId: body.sessionId,
       question,
-      component: payload.component,
+      components: summarizeLangComponents(lang),
     });
     res.json({
       threadId,
       sessionId: sessionId ?? undefined,
       cached: false,
       provider: provider.name,
-      ...payload,
+      lang,
+      viewUrl: buildViewUrl(lang),
     });
   } catch (err) {
-    if (err instanceof ToolUseError) {
+    if (err instanceof LangGenerationError) {
       res.status(502).json({ error: err.message });
       return;
     }
     log.errorWith("chat route failed", err);
-    res.status(500).json({ error: "Internal error running tool-use turn" });
+    res.status(500).json({ error: "Internal error running the generation turn" });
   }
 });

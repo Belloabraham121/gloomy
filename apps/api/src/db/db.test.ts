@@ -26,27 +26,22 @@ describe.skipIf(!hasDb)("database layer (live Postgres)", () => {
 
     expect(await getCachedResponse(question)).toBeNull();
 
-    await setCachedResponse(question, {
-      component: "Quiz",
-      props: {
-        question: "2 + 2?",
-        choices: [{ id: "a", label: "4" }],
-        correctChoiceId: "a",
-        explanation: "Arithmetic.",
-      },
-    });
+    await setCachedResponse(
+      question,
+      'root = Quiz("2 + 2?", [{"id":"a","label":"4"}], "a", "Arithmetic.")',
+    );
 
     const first = await getCachedResponse(question);
-    expect(first?.component).toBe("Quiz");
+    expect(first).toContain("Quiz");
 
     // Same key, different payload - must upsert, not throw a unique-constraint error.
-    await setCachedResponse(question, {
-      component: "StepThrough",
-      props: { title: "Updated", steps: [{ heading: "h", body: "b" }] },
-    });
+    await setCachedResponse(
+      question,
+      'root = StepThrough("Updated", [{"heading":"h","body":"b"}])',
+    );
 
     const second = await getCachedResponse(question);
-    expect(second?.component).toBe("StepThrough");
+    expect(second).toContain("StepThrough");
   });
 
   it("cache is scoped per document: the same question against different documents (or none) misses independently", async () => {
@@ -66,7 +61,7 @@ describe.skipIf(!hasDb)("database layer (live Postgres)", () => {
 
     await setCachedResponse(
       question,
-      { component: "Quiz", props: { question: "About Doc A?", choices: [{ id: "a", label: "Yes" }], correctChoiceId: "a", explanation: "." } },
+      'root = Quiz("About Doc A?", [{"id":"a","label":"Yes"}], "a", ".")',
       sourceA.id,
     );
 
@@ -78,14 +73,14 @@ describe.skipIf(!hasDb)("database layer (live Postgres)", () => {
   it("recordProgress creates a session when none is given, and reuses it when the id is passed back", async () => {
     const sessionId = await recordProgress({
       question: "What is a quiz?",
-      component: "Quiz",
+      components: "Stack, Quiz",
     });
     expect(sessionId).toBeTruthy();
 
     const reused = await recordProgress({
       sessionId: sessionId!,
       question: "Follow-up question",
-      component: "StepThrough",
+      components: "Stack, StepThrough",
     });
     expect(reused).toBe(sessionId);
   });

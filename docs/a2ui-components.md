@@ -1,17 +1,24 @@
 # A2UI component spec
 
-**Implemented.** All 6 prop contracts below are real Zod schemas in
-`packages/a2ui-spec` (see that package for the exact source), consumed by:
+**Implemented.** These are gloomy's **custom** OpenUI Lang components — real
+Zod schemas in `packages/a2ui-spec` (`openui-components.ts`'s
+`customComponentSpecs` is the single source of truth for name + schema +
+description; see that package for the exact source), consumed by:
 
-- `apps/web`'s OpenUI library (`lib/a2ui-library.ts`, via `defineComponent`)
-  and its React implementations in `components/a2ui/`.
-- `apps/api`'s Claude tool definitions (`claude/tools.ts`, one tool per
-  component, JSON Schema generated from the same Zod schema via
-  `z.toJSONSchema`).
+- `apps/web`'s extended OpenUI library (`lib/a2ui-library.tsx`, via
+  `defineComponent`) and its React implementations in `components/a2ui/`.
+- `apps/api`'s generated system prompt
+  (`apps/api/src/llm/generated/openui-contract.ts`, produced from the same
+  library — see `docs/openui-migration.md`) and its `@openuidev/lang-core`
+  validation of whatever OpenUI Lang the model returns.
 
-The shapes below match the real schemas; treat this file as documentation
-of the contract, not a draft to diverge from — if you change a schema,
-update this file in the same change.
+These are only 6 of the components the model can actually use — it composes
+them alongside OpenUI's own built-ins (`Stack`, `Card`, `Tabs`, `Accordion`,
+`Table`, `MarkDownRenderer`, `BarChart`/`LineChart`/`AreaChart`/…) in one
+Lang program; see `docs/openui-migration.md` for the full transport. The
+shapes below match the real schemas; treat this file as documentation of
+gloomy's custom components' contract, not a draft to diverge from — if you
+change a schema, update this file in the same change.
 
 ## Diagram
 
@@ -95,10 +102,20 @@ reach a real JS evaluator.
 }
 ```
 
-## Chart
+## Chart (retired — legacy decode/render only, not model-facing)
 
 Quantitative data over a category/time axis, rendered as plain SVG
 (line or bar) — no charting library dependency.
+
+**Retired in the OpenUI migration** (see `docs/openui-migration.md`): the
+model is no longer offered this component and cannot generate it — OpenUI's
+own `BarChart`/`LineChart`/`AreaChart`/`PieChart`/`RadarChart`/`ScatterChart`
+are richer and the system prompt tells the model to prefer them for
+quantitative data. The schema and React component are kept **only** so a
+`{component: "Chart", ...}` payload minted before this migration (an old
+cached row, or an old delivered `/d?p=…` link) still decodes and renders —
+see the legacy path in `apps/web/src/components/A2uiRenderer.tsx`. Not part
+of `packages/a2ui-spec`'s `customComponentSpecs`.
 
 ```ts
 {
@@ -116,7 +133,9 @@ Quantitative data over a category/time axis, rendered as plain SVG
 ## FormulaStepper
 
 A formula or derivation revealed term by term via Back/Next, same
-navigation pattern as StepThrough.
+navigation pattern as StepThrough. `expression` is plain text/LaTeX-ish
+notation, not real LaTeX — for a single static formula, prefer `Math`
+below.
 
 ```ts
 {
@@ -127,3 +146,24 @@ navigation pattern as StepThrough.
   }>;
 }
 ```
+
+## Math
+
+**New in the OpenUI migration** (see `docs/openui-migration.md`) — real
+LaTeX, rendered with KaTeX (`apps/web/src/components/a2ui/Math.tsx`, via
+`katex` + `react-katex`). No pre-OpenUI equivalent existed: the old
+single-component contract had nowhere to put a standalone formula outside
+`FormulaStepper`'s term-by-term reveal. Malformed LaTeX (`katex.
+renderToString(latex, { throwOnError: true })` throws) falls back to a
+plain `<code>` block with the raw string, so one bad expression never
+crashes the render.
+
+```ts
+{
+  latex: string;      // e.g. "\\frac{a}{b}" or "E = mc^2" — no surrounding $ or \[ \]
+  display?: boolean;  // true = centered block equation; false/omitted = inline
+}
+```
+
+Not part of Card/Tabs/Accordion's fixed child-type union — the model is
+instructed to always nest it inside a `Stack`.

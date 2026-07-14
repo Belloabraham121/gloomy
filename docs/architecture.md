@@ -2,6 +2,12 @@
 
 ## Request flow (2D / OpenUI path) — as actually built
 
+> **This section describes the current (post-migration) transport.** See
+> `docs/openui-migration.md` for the full before/after and why it changed;
+> the "Anthropic ↔ OpenUI transport gap" section further below is now
+> historical context for *why* the original build used tool-use instead of
+> real Lang generation, not a description of the current system.
+
 1. User asks a question in `apps/web` (or clicks a suggested question). If
    a document is active (see "Document upload + RAG grounding" below), the
    question is appended as a new card on the stacking canvas rather than
@@ -16,24 +22,34 @@
    API key needs to be set.
 4. On a miss, `apps/api` picks a provider (`src/llm/index.ts`:
    `LLM_PROVIDER=anthropic|openai` forces one; otherwise Anthropic is
-   preferred when both keys are present) and runs a tool-use turn over the
-   whole (capped) message thread. The available tools are generated from
-   `packages/a2ui-spec` — one tool per A2UI component (`Diagram`,
-   `StepThrough`, `Quiz`, `Simulation`, `Chart`, `FormulaStepper`). The
-   model picks one and fills its arguments. If `documentId` was passed, the
-   retrieved grounding context (a PDF excerpt or a parsed CSV summary — see
-   below) is appended to `SYSTEM_PROMPT` before the call.
-5. Whatever the model returns — from either provider — is validated against
-   that same Zod schema (never trusted as-is). If invalid, one retry with
-   the validation error fed back (`tool_result` for Claude, a `tool` role
-   message for OpenAI, whose string-encoded arguments also get a
-   JSON.parse guard).
-6. The validated `{ component, props }` is cached, a progress row is
-   recorded, and the whole thing is returned as a single JSON response —
-   **not a stream**. See "Anthropic ↔ OpenUI transport gap" below for why.
-7. `apps/web`'s `A2uiRenderer` dispatches `component` to the matching React
-   component from `a2uiComponents` (in `lib/a2ui-library.ts`) and renders
-   `props` directly, appended as a new card on the canvas.
+   preferred when both keys are present) and runs a plain chat completion
+   (no tool-use/function-calling) over the whole (capped) message thread,
+   instructing the model to respond entirely in **OpenUI Lang** — a
+   declarative program that composes layout, data (charts/tables),
+   markdown, and gloomy's own teaching components (`Diagram`, `StepThrough`,
+   `Quiz`, `Simulation`, `FormulaStepper`, `Math`) together, instead of
+   picking exactly one fixed component. The system prompt is generated at
+   `apps/web` build time from the real OpenUI component library
+   (`library.prompt(promptOptions)`) and embedded as a committed string
+   `apps/api` ships — see `docs/openui-migration.md` for why generation
+   happens on the frontend. If `documentId` was passed, the retrieved
+   grounding context (a PDF excerpt or a parsed CSV summary — see below) is
+   appended to that system prompt before the call.
+5. Whatever the model returns — from either provider — is parsed with
+   `@openuidev/lang-core`'s `createParser` against the same library schema
+   and never trusted as-is. If it has no resolvable `root` statement or
+   references a component outside the library, one retry with the
+   validation error fed back as a follow-up message; a second failure
+   returns `502`.
+6. The validated Lang program is cached, a progress row is recorded (a
+   short summary of the distinct component types used, e.g. `"Stack,
+   Chart, Table"`), and the whole thing is returned as a single JSON
+   response — **not a stream**. See "Anthropic ↔ OpenUI transport gap"
+   below for why real streaming still isn't wired.
+7. `apps/web`'s `A2uiLangView` renders the returned `lang` string through
+   OpenUI's own `<Renderer library={a2uiLibrary} .../>` (the extended
+   library — OpenUI's built-ins plus gloomy's custom components, from
+   `lib/a2ui-library.tsx`), appended as a new card on the canvas.
 
 ## Conversation history — implemented
 
@@ -111,7 +127,8 @@ storage, PDF or CSV, 20MB cap) dispatches to one of two pipelines in
 
 `POST /api/chat` accepts an optional `documentId`, resolved by
 `rag/grounding.ts` into a text block appended to `SYSTEM_PROMPT` for that
-turn only (no change to the tool-use/validation/retry logic itself).
+turn only (no change to the Lang-generation/validation/retry logic itself —
+see `docs/openui-migration.md`).
 `rag/retrieve.ts`'s `retrieveChunks` picks the retrieval mode per source
 automatically:
 - Chunks with a stored embedding (PDF) → embed the question, pgvector
@@ -166,25 +183,31 @@ good fit for structured, mostly-2D teaching content but isn't built for
 free-form 3D/simulated scenes. Rather than stretch one framework to cover
 both, 3D-shaped answers get routed to the CopilotKit surface instead.
 
-## Anthropic ↔ OpenUI transport gap — resolved by not using it (yet)
+## Anthropic ↔ OpenUI transport gap — historical context, now Lang generation without streaming
 
-OpenUI ships stream adapters for OpenAI-compatible APIs, LangGraph, and the
-AG-UI protocol, plus a Lang DSL (`Renderer` + `createParser`) meant to be
-fed that streamed text. None of that has an Anthropic adapter, and with no
-live Claude API access available while building this, hand-authoring
-correct OpenUI Lang generation prompts and trusting them without ever
-testing against a real model was too large a risk of silent breakage.
+**Historical note (pre-OpenUI-migration):** this section originally
+explained why gloomy used forced single-tool-call output instead of OpenUI
+Lang at all — OpenUI's stream adapters target OpenAI-compatible APIs/
+LangGraph/AG-UI with no Anthropic adapter, and there was no live model
+access yet to validate hand-authored Lang prompts against. That blocker no
+longer applies (see `docs/openui-migration.md`): both providers now
+generate real OpenUI Lang, using the system prompt OpenUI's own
+`Library.prompt()` generates (no hand-authored grammar), validated
+server-side with `@openuidev/lang-core`'s real parser before ever being
+trusted.
 
-What's actually implemented instead: `apps/api` returns plain
-`{ component, props }` JSON (validated against the same Zod schema used to
-define the component), and `apps/web`'s `A2uiRenderer` renders it directly
-against the component's real React implementation — no OpenUI Lang parsing
-involved at runtime. `lib/a2ui-library.ts` still registers everything as a
-proper OpenUI `defineComponent`/`createLibrary`, so switching to real
-streamed Lang output later (once there's a way to validate it against a
-live model) is a matter of wiring a Claude-aware `streamProtocol`/adapter
-and swapping `A2uiRenderer` for OpenUI's `Renderer` — the component
-definitions and schemas don't need to change.
+**What's still true today:** the *transport gap that remains* is streaming,
+not Lang generation itself. OpenUI's adapters are built around
+provider-native token streaming (OpenAI's streaming chat completions,
+LangGraph, AG-UI); `apps/api` calls both providers with plain non-streaming
+chat completions and returns one complete JSON response per turn — same
+as before this migration. `A2uiLangView`'s `isStreaming` prop and OpenUI's
+`<Renderer>` are already wired to support partial/streaming Lang text (the
+Renderer's own documented safety behavior — e.g. not rendering a chart
+series until its data array closes — is what the "streaming gotchas" note
+in `docs/openui-migration.md` refers to), so adding real SSE/streaming
+later only changes how `apps/api` assembles and sends `lang`, not the
+frontend integration.
 
 ## A shared package that two different bundlers disagree about
 
@@ -213,7 +236,9 @@ Postgres (via Drizzle) is used for both, defined in `apps/api/src/db/schema.ts`:
 - `cache_entries` — keyed on a SHA-256 hash of the (trimmed, lowercased)
   question text plus the `documentId` it was grounded in (`""` when
   ungrounded), so the same question against a different — or no —
-  document never wrongly hits another document's cached answer.
+  document never wrongly hits another document's cached answer. Stores the
+  validated OpenUI Lang program as `lang: text` (pre-migration: `component:
+  text` + `props: jsonb`) — see `docs/openui-migration.md`.
 - `sessions` / `progress_entries` — no auth; a session is just a
   server-generated id the client holds in `localStorage` (see root
   README's session-vs-account discussion). Every response (cached or not)

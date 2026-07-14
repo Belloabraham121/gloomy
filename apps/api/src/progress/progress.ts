@@ -8,7 +8,8 @@ const log = createLogger("api:progress");
 export interface RecordProgressInput {
   sessionId?: string;
   question: string;
-  component: string;
+  /** Short comma-joined summary of the component types used (e.g. "Stack, Chart, Table"), not one name - see db/schema.ts. */
+  components: string;
   quizCorrect?: boolean;
 }
 
@@ -52,7 +53,7 @@ export async function recordProgress(
     await db.insert(progressEntries).values({
       sessionId,
       question: input.question,
-      component: input.component,
+      components: input.components,
       quizCorrect: input.quizCorrect ?? null,
     });
     return sessionId;

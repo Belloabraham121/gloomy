@@ -2,6 +2,7 @@ import type {
   ChartProps,
   DiagramProps,
   FormulaStepperProps,
+  MathProps,
   QuizProps,
   SimulationProps,
   StepThroughProps,
@@ -85,6 +86,25 @@ export const sampleChart: ChartProps = {
     },
   ],
 };
+
+export const sampleMath: MathProps = {
+  latex: "A = \\pi r^2",
+  display: true,
+};
+
+/**
+ * A hand-written OpenUI Lang program exercising the full extended library
+ * (layout + a custom teaching component + a built-in chart + Math) — used by
+ * the gallery to demonstrate the Renderer path end-to-end, not just the
+ * legacy direct-component fixtures above. See docs/openui-migration.md.
+ */
+export const sampleOpenUiLang = `root = Stack([title, intro, formula, chartCard], "column", "l")
+title = TextContent("Circle area, from formula to chart", "large-heavy")
+intro = TextContent("The area of a circle scales with the square of its radius:")
+formula = Math("A = \\\\pi r^2", true)
+chartCard = Card([chartHeader, chart])
+chartHeader = CardHeader("Area by radius", "A = \u03c0r\u00b2 evaluated at a few radii")
+chart = BarChart(["1", "2", "3", "4", "5"], [Series("Area", [3.14, 12.57, 28.27, 50.27, 78.54])], "grouped", "Radius", "Area")`;
 
 export const stemCellDiagram: DiagramProps = {
   title: "How a stem cell differentiates",
