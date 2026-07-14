@@ -17,7 +17,10 @@ COPY apps/web/package.json apps/web/package.json
 COPY apps/web-3d/package.json apps/web-3d/package.json
 COPY packages/a2ui-spec/package.json packages/a2ui-spec/package.json
 
-RUN pnpm install --frozen-lockfile
+# --ignore-scripts: skip lifecycle scripts here (notably a2ui-spec's `prepare`
+# tsc, which would run before source is copied and fail). a2ui-spec is built
+# explicitly below once its source is present.
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 COPY packages/a2ui-spec packages/a2ui-spec
 COPY apps/api apps/api
