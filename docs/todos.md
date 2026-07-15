@@ -15,16 +15,12 @@ Use this as the run-order checklist. Detailed guides: [`deploy-coolify.md`](./de
   - See [`openui-migration.md`](./openui-migration.md) for what changed
 - [x] Quality gates passed locally (typecheck, **52/52** tests, `next build`, Docker image)
 - [x] **Commit + push** OpenUI migration to `main` (`743f5a8`)
-- [ ] Run prod migration `0002_openui_lang.sql` on deployed Postgres (needs your Coolify/`DATABASE_URL` — no prod URL in this repo)
-  ```bash
-  # from a machine that can reach prod Postgres:
-  psql "$DATABASE_URL" -c "CREATE EXTENSION IF NOT EXISTS vector;"
-  cd apps/api && DATABASE_URL="<prod DATABASE_URL>" pnpm run db:migrate
-  ```
-- [ ] Trigger Coolify redeploy for `apps/api` (and rebuild `apps/web` if deployed) — no deploy webhook in repo; use Coolify → resource → **Redeploy** (web: rebuild so frontend gets new Renderer)
-- [ ] Fix LLM billing (local `.env`: `OPENAI_API_KEY` set, `ANTHROPIC_API_KEY` empty; OpenAI billing was reported inactive):
-  - Reactivate billing at [platform.openai.com](https://platform.openai.com), **or**
-  - Add `ANTHROPIC_API_KEY` to Coolify runtime env **and** `apps/api/.env`, then redeploy
+- [x] Live API verified Jul 15: `https://ft3kqaeyc8q9aw0uv8o3rtof.locimind.org` — `/health` OK, OpenUI Lang `/api/chat` works with LLM key
+- [ ] Run prod migration `0002_openui_lang.sql` on deployed Postgres if cache/progress errors appear (optional if chat already succeeds)
+- [x] Coolify API redeployed with OpenUI build (live `uiTransport: openui-lang`)
+- [x] LLM key working on Coolify (chat returns Lang)
+- [ ] Set `PUBLIC_WEB_URL` to your deployed web origin so `viewUrl` is absolute (still relative `/d?p=…` today)
+- [ ] Deploy `apps/web` on Coolify (needed for buyers to open deliverable `/d` links)
 
 ---
 
@@ -75,20 +71,20 @@ Reference: [`okx-genesis.md` §5](./okx-genesis.md), `apps/api/README.md`
 
 - [x] `onchainos` skills installed (`npx skills add okx/onchainos-skills`)
 - [x] Avatar ready: `apps/web/public/gloomy-asp-avatar.png`
-- [ ] API live at permanent **public HTTPS** URL (localhost rejected)
-- [ ] OKX wallet connected in terminal/agent session
-- [ ] `onchainos` CLI logged in (API keys in shell or `~/.onchainos/.env` — not on the server)
+- [x] API live at permanent **public HTTPS** URL (`https://ft3kqaeyc8q9aw0uv8o3rtof.locimind.org`)
+- [x] `onchainos` CLI installed locally (`~/.local/bin/onchainos` v4.2.4)
+- [ ] OKX wallet logged in with an **XLayer** address (`pre-check` currently: "no XLayer address found")
+- [ ] `OKX_PASSPHRASE` set for API-key login (currently empty) **or** email+OTP wallet login
+- [x] ASP create → `#5920` (tx `0xfbf751750aa4a2ecb02464b0b533f178d3e7cbebd7ebc949138e722fc13d1718`)
+- [x] `activate #5920` submitted → **Listing under review** (OKX approval pending)
+- [ ] Confirm listing **live/approved** on [okx.ai/agents](https://www.okx.ai/agents) after review
 
-**Registration steps** (you run these; only `agent create` needs wallet confirmation)
+**Registration steps**
 
-- [ ] `onchainos preflight`
-- [ ] `onchainos agent pre-check --role asp`
-- [ ] `onchainos agent upload --file apps/web/public/gloomy-asp-avatar.png` → save CDN URL
-- [ ] `onchainos agent validate-listing --role asp` with gloomy fields (name, description, A2MCP service → `https://<api-domain>/api/chat`, fee e.g. `"10"`)
-- [ ] `onchainos agent create --role asp ...` → note `#<id>`
-- [ ] `onchainos agent activate #<id>`
-- [ ] Re-verify curls from Phase 2
-- [ ] Confirm listing **live/approved** on [okx.ai/agents](https://www.okx.ai/agents)
+- [x] preflight / pre-check / upload / validate-listing / create → `#5920`
+- [ ] activate `#5920`
+- [ ] Confirm listing live/approved on okx.ai
+- [ ] Genesis: X demo #OKXAI + HackQuest Google form (deadline Jul 17 23:59 UTC)
 
 ---
 

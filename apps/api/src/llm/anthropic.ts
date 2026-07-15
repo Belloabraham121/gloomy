@@ -1,21 +1,29 @@
 import Anthropic from "@anthropic-ai/sdk";
-import { LangGenerationError, validateLang, type ChatMessage } from "./shared.js";
-import { SYSTEM_PROMPT } from "./system-prompt.js";
+import { normalizeUiStyle } from "@gloomy/a2ui-spec";
+import { composeSystemPrompt } from "./compose-system.js";
+import {
+  LangGenerationError,
+  validateLang,
+  type ChatMessage,
+  type LangTurnOpts,
+} from "./shared.js";
+
+export type { LangTurnOpts };
 
 export const ANTHROPIC_MODEL =
   process.env.ANTHROPIC_MODEL ?? "claude-sonnet-4-5";
 
-// Rich multi-block UI needs more room than the old single-tool-call
-// payload did - a Stack of several components easily runs a few hundred
-// tokens of openui-lang.
-const MAX_TOKENS = 4096;
+const MAX_TOKENS = 8192;
 
 /** The subset of the Anthropic SDK this module calls, so tests can pass a fake. */
 export interface AnthropicMessagesClient {
   messages: {
     create: (
-      params: Anthropic.MessageCreateParamsNonStreaming,
-    ) => Promise<Anthropic.Message>;
+      params: Anthropic.MessageCreateParams,
+    ) => Promise<
+      | Anthropic.Message
+      | AsyncIterable<Anthropic.MessageStreamEvent>
+    >;
   };
 }
 
@@ -40,40 +48,64 @@ function extractText(message: Anthropic.Message): string {
     .trim();
 }
 
+async function collectStream(
+  stream: AsyncIterable<Anthropic.MessageStreamEvent>,
+  onDelta?: (partial: string) => void,
+): Promise<string> {
+  let text = "";
+  for await (const event of stream) {
+    if (
+      event.type === "content_block_delta" &&
+      event.delta.type === "text_delta"
+    ) {
+      text += event.delta.text;
+      onDelta?.(text);
+    }
+  }
+  return text.trim();
+}
+
 /**
- * One turn of the OpenUI Lang generation loop against Claude: ask it to
- * respond entirely in openui-lang (system prompt sets the contract, no
- * tool_choice forcing needed since there's no tool call anymore), validate
- * the result, and retry once with the validation error fed back as a plain
- * follow-up message if the first attempt didn't parse.
+ * One turn of the OpenUI Lang generation loop against Claude. When
+ * `onDelta` is set, the first attempt streams; the validation retry is
+ * always non-streaming.
  */
 export async function runAnthropicLangTurn(
   client: AnthropicMessagesClient,
   messages: ChatMessage[],
-  groundingContext?: string,
+  opts: LangTurnOpts = {},
 ): Promise<string> {
   const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
     role: m.role,
     content: m.content,
   }));
-  const system = groundingContext
-    ? `${SYSTEM_PROMPT}\n\n${groundingContext}`
-    : SYSTEM_PROMPT;
+  const system = composeSystemPrompt({
+    style: normalizeUiStyle(opts.style),
+    groundingContext: opts.groundingContext,
+  });
 
+  const streamFirst = Boolean(opts.onDelta);
   const first = await client.messages.create({
     model: ANTHROPIC_MODEL,
     max_tokens: MAX_TOKENS,
     system,
     messages: anthropicMessages,
+    stream: streamFirst,
   });
 
-  const text = extractText(first);
+  const text = streamFirst
+    ? await collectStream(
+        first as AsyncIterable<Anthropic.MessageStreamEvent>,
+        opts.onDelta,
+      )
+    : extractText(first as Anthropic.Message);
+
   try {
     return validateLang(text);
   } catch (err) {
     if (!(err instanceof LangGenerationError)) throw err;
 
-    const retry = await client.messages.create({
+    const retry = (await client.messages.create({
       model: ANTHROPIC_MODEL,
       max_tokens: MAX_TOKENS,
       system,
@@ -85,8 +117,11 @@ export async function runAnthropicLangTurn(
           content: `Your last response failed validation: ${err.message}\n\nRespond again with ONLY corrected openui-lang - no explanation, no markdown code fences.`,
         },
       ],
-    });
+      stream: false,
+    })) as Anthropic.Message;
 
-    return validateLang(extractText(retry));
+    const corrected = validateLang(extractText(retry));
+    opts.onDelta?.(corrected);
+    return corrected;
   }
 }

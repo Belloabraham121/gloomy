@@ -2,6 +2,7 @@ import type {
   ChartProps,
   DiagramProps,
   FormulaStepperProps,
+  ImageUploadProps,
   MathProps,
   QuizProps,
   SimulationProps,
@@ -90,6 +91,12 @@ export const sampleChart: ChartProps = {
 export const sampleMath: MathProps = {
   latex: "A = \\pi r^2",
   display: true,
+};
+
+export const sampleImageUpload: ImageUploadProps = {
+  label: "Hero photo",
+  description: "Pick a JPEG/PNG/WebP/GIF from your device (uploads to apps/api).",
+  multiple: false,
 };
 
 /**

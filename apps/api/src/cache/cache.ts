@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { eq } from "drizzle-orm";
+import { normalizeUiStyle, type UiStyleId } from "@gloomy/a2ui-spec";
 import { getDb } from "../db/client.js";
 import { cacheEntries } from "../db/schema.js";
 import { createLogger } from "../log.js";
@@ -8,13 +9,18 @@ const log = createLogger("api:cache");
 
 /**
  * Cache key hashes the normalized question together with the grounding
- * document (if any), so the same question against a different (or no)
- * document doesn't wrongly hit another document's cached answer.
+ * document and UI style (if any), so the same question as a "report"
+ * doesn't wrongly hit a "lesson" answer, and grounding stays scoped.
  */
-export function cacheKeyFor(question: string, documentId?: string): string {
+export function cacheKeyFor(
+  question: string,
+  documentId?: string,
+  style?: UiStyleId | string,
+): string {
   const normalized = question.trim().toLowerCase();
+  const styleKey = normalizeUiStyle(style);
   return createHash("sha256")
-    .update(`${documentId ?? ""}::${normalized}`)
+    .update(`${documentId ?? ""}::${styleKey}::${normalized}`)
     .digest("hex");
 }
 
@@ -27,12 +33,13 @@ export function cacheKeyFor(question: string, documentId?: string): string {
 export async function getCachedResponse(
   question: string,
   documentId?: string,
+  style?: UiStyleId | string,
 ): Promise<string | null> {
   const db = getDb();
   if (!db) return null;
 
   try {
-    const key = cacheKeyFor(question, documentId);
+    const key = cacheKeyFor(question, documentId, style);
     const rows = await db
       .select()
       .from(cacheEntries)
@@ -54,12 +61,13 @@ export async function setCachedResponse(
   question: string,
   lang: string,
   documentId?: string,
+  style?: UiStyleId | string,
 ): Promise<void> {
   const db = getDb();
   if (!db) return;
 
   try {
-    const key = cacheKeyFor(question, documentId);
+    const key = cacheKeyFor(question, documentId, style);
     await db
       .insert(cacheEntries)
       .values({ cacheKey: key, lang })

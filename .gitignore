@@ -29,6 +29,9 @@ pnpm-debug.log*
 # Test / coverage
 coverage/
 
+# Local image uploads from ImageUpload / POST /api/uploads/images
+apps/api/data/uploads/
+
 # OKX onchainos-skills toolkit (local, reinstallable via
 # `npx skills add okx/onchainos-skills` — see apps/api/README.md)
 .agents/

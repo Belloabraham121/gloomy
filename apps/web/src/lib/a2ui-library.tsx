@@ -1,5 +1,6 @@
 import { createLibrary, defineComponent } from "@openuidev/react-lang";
 import {
+  openuiChatLibrary,
   openuiComponentGroups,
   openuiLibrary,
 } from "@openuidev/react-ui/genui-lib";
@@ -8,6 +9,7 @@ import {
   customComponentSpecs,
   diagramSchema,
   formulaStepperSchema,
+  imageUploadSchema,
   mathSchema,
   quizSchema,
   simulationSchema,
@@ -16,6 +18,7 @@ import {
 import { Chart } from "@/components/a2ui/Chart";
 import { Diagram } from "@/components/a2ui/Diagram";
 import { FormulaStepper } from "@/components/a2ui/FormulaStepper";
+import { ImageUpload } from "@/components/a2ui/ImageUpload";
 import { Math as MathComponent } from "@/components/a2ui/Math";
 import { Quiz } from "@/components/a2ui/Quiz";
 import { Simulation } from "@/components/a2ui/Simulation";
@@ -72,6 +75,13 @@ const MathDefinedComponent = defineComponent({
   component: ({ props }) => <MathComponent {...props} />,
 });
 
+const ImageUploadComponent = defineComponent({
+  name: "ImageUpload",
+  description: descriptions.ImageUpload,
+  props: imageUploadSchema,
+  component: ({ props }) => <ImageUpload {...props} />,
+});
+
 const customDefinedComponents = [
   DiagramComponent,
   StepThroughComponent,
@@ -79,20 +89,52 @@ const customDefinedComponents = [
   SimulationComponent,
   FormulaStepperComponent,
   MathDefinedComponent,
+  ImageUploadComponent,
 ];
 
+/** Chat-library-only pieces not present on the genui `openuiLibrary`. */
+const CHAT_ONLY_NAMES = new Set([
+  "FollowUpBlock",
+  "FollowUpItem",
+  "ListBlock",
+  "ListItem",
+  "SectionBlock",
+  "SectionItem",
+]);
+
+const chatOnlyComponents = Object.values(openuiChatLibrary.components).filter(
+  (c) => CHAT_ONLY_NAMES.has(c.name),
+);
+
 /**
- * The extended OpenUI Lang library: OpenUI's own built-in components
- * (Stack, Tabs, Accordion, Charts, Table, MarkDownRenderer, forms, ...)
- * plus gloomy's custom teaching components and Math, all renderable
- * through one `<Renderer library={a2uiLibrary} .../>` - see
- * docs/openui-migration.md for the migration from the old direct-render
- * single-component path.
+ * The extended OpenUI Lang library: OpenUI genui built-ins (Stack, Tabs,
+ * Charts, forms, …) + chat-library extras (FollowUp / List / Section) +
+ * gloomy's custom teaching components and Math — all renderable through
+ * one `<Renderer library={a2uiLibrary} …/>`.
  */
 export const a2uiLibrary = createLibrary({
-  components: [...Object.values(openuiLibrary.components), ...customDefinedComponents],
+  components: [
+    ...Object.values(openuiLibrary.components),
+    ...chatOnlyComponents,
+    ...customDefinedComponents,
+  ],
   componentGroups: [
     ...(openuiComponentGroups ?? []),
+    {
+      name: "Lists & Follow-ups",
+      components: ["ListBlock", "ListItem", "FollowUpBlock", "FollowUpItem"],
+      notes: [
+        "- Use ListBlock for bulleted / numbered lists of rich items.",
+        "- FollowUpBlock/FollowUpItem for suggested next questions that fire continue_conversation.",
+      ],
+    },
+    {
+      name: "Sections",
+      components: ["SectionBlock", "SectionItem"],
+      notes: [
+        "- Use for long documents that need titled sections with mixed content.",
+      ],
+    },
     {
       name: "Teaching (gloomy custom)",
       components: customComponentSpecs.map((c) => c.name),

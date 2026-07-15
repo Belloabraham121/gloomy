@@ -9,6 +9,7 @@ import { stepThroughSchema } from "./step-through.js";
 export * from "./chart.js";
 export * from "./diagram.js";
 export * from "./formula-stepper.js";
+export * from "./image-upload.js";
 export * from "./lang-summary.js";
 export * from "./math.js";
 export * from "./openui-components.js";
@@ -16,6 +17,7 @@ export * from "./payload-link.js";
 export * from "./quiz.js";
 export * from "./simulation.js";
 export * from "./step-through.js";
+export * from "./ui-styles.js";
 
 export const a2uiRegistry = {
   Diagram: {

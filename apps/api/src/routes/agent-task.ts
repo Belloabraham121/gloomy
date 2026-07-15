@@ -1,5 +1,10 @@
 import { Router } from "express";
-import { encodeLang, summarizeLangComponents } from "@gloomy/a2ui-spec";
+import {
+  encodeLang,
+  normalizeUiStyle,
+  summarizeLangComponents,
+  type UiStyleId,
+} from "@gloomy/a2ui-spec";
 import { getCachedResponse, setCachedResponse } from "../cache/cache.js";
 import {
   getLlmProvider,
@@ -25,6 +30,7 @@ interface AgentTaskBody {
   task?: string;
   jobId?: string;
   documentId?: string;
+  style?: UiStyleId | string;
 }
 
 /** Builds the stateless deliverable link + deliver-ready message. Exported for tests. */
@@ -61,6 +67,7 @@ agentTaskRouter.post("/", async (req, res) => {
   }
 
   const webUrl = process.env.PUBLIC_WEB_URL;
+  const style = normalizeUiStyle(body.style);
 
   const respond = (lang: string, cached: boolean, provider?: string) => {
     const { viewUrl, deliverMessage } = buildDeliverable(lang, webUrl);
@@ -68,6 +75,7 @@ agentTaskRouter.post("/", async (req, res) => {
       jobId: body.jobId ?? undefined,
       cached,
       provider,
+      style,
       lang,
       viewUrl,
       deliverMessage,
@@ -79,7 +87,7 @@ agentTaskRouter.post("/", async (req, res) => {
     });
   };
 
-  const cachedLang = await getCachedResponse(task, body.documentId);
+  const cachedLang = await getCachedResponse(task, body.documentId, style);
   if (cachedLang) {
     await recordProgress({ question: task, components: summarizeLangComponents(cachedLang) });
     respond(cachedLang, true);
@@ -99,11 +107,11 @@ agentTaskRouter.post("/", async (req, res) => {
 
   try {
     const groundingContext = await buildGroundingContext(body.documentId, task);
-    const lang = await provider.runLangTurn(
-      [{ role: "user", content: task }],
-      groundingContext ?? undefined,
-    );
-    await setCachedResponse(task, lang, body.documentId);
+    const lang = await provider.runLangTurn([{ role: "user", content: task }], {
+      groundingContext: groundingContext ?? undefined,
+      style,
+    });
+    await setCachedResponse(task, lang, body.documentId, style);
     await recordProgress({ question: task, components: summarizeLangComponents(lang) });
     respond(lang, false, provider.name);
   } catch (err) {

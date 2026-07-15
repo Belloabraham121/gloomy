@@ -25,25 +25,26 @@ function buildManifest(baseUrl: string) {
     name: "gloomy",
     displayName: "gloomy",
     description:
-      "A generative learning agent: ask a question (or upload a PDF/CSV) and get back a rich, multi-block interactive UI - layouts, charts, tables, markdown, real LaTeX, and gloomy's own teaching components (diagrams, step-throughs, quizzes, simulations) composed together via OpenUI Lang - instead of a wall of text.",
+      "A generative UI agent: ask for a report, pitch deck, dashboard, lesson, form, or any interactive document (optionally grounded on an uploaded PDF/CSV) and get back a rich multi-block OpenUI Lang program — layouts, charts, tables, markdown, forms, follow-ups, real LaTeX, and gloomy's teaching components — instead of a wall of text.",
     version: VERSION,
     // The service type: a plain HTTPS API (OKX ASP calls this "A2MCP").
     serviceType: "api",
     uiTransport: "openui-lang",
+    uiStyles: ["auto", "report", "pitch", "dashboard", "lesson", "form"],
     endpoints: {
       chat: {
         method: "POST",
         path: "/api/chat",
         url: `${baseUrl}/api/chat`,
         description:
-          "Send { messages: [{ role, content }], sessionId?, documentId? }; receive { lang, viewUrl, provider?, cached } - `lang` is an OpenUI Lang program (render with @openuidev/react-lang's Renderer), `viewUrl` is a ready-to-open link for callers with no OpenUI renderer.",
+          "Send { messages: [{ role, content }], sessionId?, documentId?, style?, stream? }; receive { lang, viewUrl, provider?, cached, style } — or SSE (Accept: text/event-stream / stream:true) with delta+done events. `lang` is an OpenUI Lang program.",
       },
       task: {
         method: "POST",
         path: "/api/agent/task",
         url: `${baseUrl}/api/agent/task`,
         description:
-          "Marketplace fulfillment: send { task, jobId?, documentId? } after job_accepted; receive { lang, viewUrl, deliverMessage } - deliverMessage is ready for `onchainos agent deliver --message`, viewUrl renders the full multi-block UI for the buyer.",
+          "Marketplace fulfillment: send { task, jobId?, documentId?, style? } after job_accepted; receive { lang, viewUrl, deliverMessage, style } — deliverMessage is ready for `onchainos agent deliver --message`.",
       },
       documents: {
         method: "POST",
@@ -51,6 +52,13 @@ function buildManifest(baseUrl: string) {
         url: `${baseUrl}/api/documents`,
         description:
           "Upload a PDF (multipart field 'file') to ground subsequent questions in it. Returns { sourceId, title, chunkCount }.",
+      },
+      imageUploads: {
+        method: "POST",
+        path: "/api/uploads/images",
+        url: `${baseUrl}/api/uploads/images`,
+        description:
+          "Upload a JPEG/PNG/WebP/GIF (multipart field 'file') for ImageUpload. Returns { id, url, contentType, bytes }; bytes are also served at GET /uploads/:filename.",
       },
       health: {
         method: "GET",

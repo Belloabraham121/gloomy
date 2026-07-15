@@ -1,9 +1,17 @@
 import { createParser, type LibraryJSONSchema } from "@openuidev/lang-core";
+import type { UiStyleId } from "@gloomy/a2ui-spec";
 import { OPENUI_LIBRARY_SCHEMA } from "./generated/openui-contract.js";
 
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
+}
+
+export interface LangTurnOpts {
+  groundingContext?: string;
+  style?: UiStyleId | string;
+  /** When set, called with the growing raw text as tokens arrive. */
+  onDelta?: (partial: string) => void;
 }
 
 /**

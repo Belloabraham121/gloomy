@@ -291,14 +291,15 @@ documented "errors don't affect rendering" permissiveness — forcing a retry
 over something cosmetic would just burn tokens without improving the
 answer.
 
-## Non-streaming, still
+## Streaming
 
-`apps/api` returns one complete JSON response per turn, same as before this
-migration — Lang generation didn't add real token-by-token streaming.
-`isStreaming` is threaded through `A2uiLangView`/OpenUI's `<Renderer>` and
-is always `false` in the current wiring; adding a real SSE transport later
-is additive (the Renderer integration doesn't change, only how `lang` gets
-assembled server-side before/while it's sent).
+`POST /api/chat` still defaults to one complete JSON body. When the client
+sends `stream: true` or `Accept: text/event-stream`, the route emits SSE
+`delta` events (partial `lang`) then a final `done` payload (same fields as
+the JSON response). apps/web's chat uses streaming by default and paints
+via `<A2uiLangView isStreaming />` until `done`. Validation retry after a
+bad first pass is non-streaming; the corrected Lang is sent as a last
+delta before `done`.
 
 ## Testing
 
@@ -342,12 +343,30 @@ To add an 8th custom component:
 
 ## Left partial / known follow-ups
 
-- **`onAction`'s `continue_conversation`** (OpenUI's `Buttons`/`FollowUp`
-  action type) is not wired to auto-resubmit a new question into the chat
-  thread yet — only `open_url` is handled (`window.open`). Low risk: no
-  current prompt guidance tells the model to emit buttons that rely on it,
-  so it's dormant rather than broken.
-- **No real token streaming** — see "Non-streaming, still" above.
 - **`apps/web-3d`/CopilotKit surface** is untouched by this migration; it
   never used the A2UI/OpenUI Lang contract at all (see
   `docs/architecture.md`'s "Why two frontends instead of one").
+
+## Generative document styles (post-migration)
+
+gloomy is a general generative-UI engine on top of the full OpenUI catalog
+(plus chat-library `FollowUp*` / `List*` / `Section*` and gloomy's teaching
+components). Callers can pass `style: auto|report|pitch|dashboard|lesson|form`
+on `/api/chat` and `/api/agent/task` (web chat exposes style chips). Non-`auto`
+styles append a forced composition block via `stylePromptBlock` / cache keys
+are scoped by style. Chat streams SSE when `stream: true` or
+`Accept: text/event-stream`; `A2uiLangView` sets `isStreaming` during deltas.
+`continue_conversation` (Buttons / FollowUp) resubmits into the chat thread;
+`open_url` still opens a new tab.
+
+## Real image upload (`ImageUpload`)
+
+OpenUI's built-in `Image` / `ImageBlock` / `ImageGallery` only take **URL**
+`src`s. gloomy adds a custom `ImageUpload` component that:
+
+1. Lets the user pick JPEG/PNG/WebP/GIF files in the generated UI.
+2. `POST`s them to `/api/uploads/images` (stored under `apps/api/data/uploads`
+   or `UPLOAD_DIR`, served at `GET /uploads/:filename`).
+3. Offers **Use in next answer**, which continues the chat with those public
+   URLs so the model can place them via `Image` / `ImageBlock` / `ImageGallery`
+   in the follow-up Lang program.

@@ -1,6 +1,7 @@
 import { Chart } from "@/components/a2ui/Chart";
 import { Diagram } from "@/components/a2ui/Diagram";
 import { FormulaStepper } from "@/components/a2ui/FormulaStepper";
+import { ImageUpload } from "@/components/a2ui/ImageUpload";
 import { GalleryLangDemo } from "@/components/GalleryLangDemo";
 import { Math } from "@/components/a2ui/Math";
 import { Quiz } from "@/components/a2ui/Quiz";
@@ -10,6 +11,7 @@ import {
   sampleChart,
   sampleDiagram,
   sampleFormulaStepper,
+  sampleImageUpload,
   sampleMath,
   sampleOpenUiLang,
   sampleQuiz,
@@ -64,6 +66,9 @@ export default function GalleryPage() {
         </GalleryItem>
         <GalleryItem kind="Math">
           <Math {...sampleMath} />
+        </GalleryItem>
+        <GalleryItem kind="ImageUpload">
+          <ImageUpload {...sampleImageUpload} />
         </GalleryItem>
       </div>
 

@@ -1,11 +1,16 @@
 import { getAnthropicClient, runAnthropicLangTurn } from "./anthropic.js";
 import { getOpenAIClient, runOpenAILangTurn } from "./openai.js";
-import { MissingApiKeyError, type ChatMessage } from "./shared.js";
+import {
+  MissingApiKeyError,
+  type ChatMessage,
+  type LangTurnOpts,
+} from "./shared.js";
 
 export {
   LangGenerationError,
   MissingApiKeyError,
   type ChatMessage,
+  type LangTurnOpts,
 } from "./shared.js";
 
 export type LlmProviderName = "anthropic" | "openai";
@@ -15,7 +20,7 @@ export interface LlmProvider {
   /** Runs one OpenUI Lang generation turn; returns the validated openui-lang source text. */
   runLangTurn: (
     messages: ChatMessage[],
-    groundingContext?: string,
+    opts?: LangTurnOpts,
   ) => Promise<string>;
 }
 
@@ -60,15 +65,15 @@ export function getLlmProvider(env: NodeJS.ProcessEnv = process.env): LlmProvide
   if (chosen === "anthropic") {
     return {
       name: "anthropic",
-      runLangTurn: (messages, groundingContext) =>
-        runAnthropicLangTurn(getAnthropicClient(), messages, groundingContext),
+      runLangTurn: (messages, opts) =>
+        runAnthropicLangTurn(getAnthropicClient(), messages, opts),
     };
   }
   if (chosen === "openai") {
     return {
       name: "openai",
-      runLangTurn: (messages, groundingContext) =>
-        runOpenAILangTurn(getOpenAIClient(), messages, groundingContext),
+      runLangTurn: (messages, opts) =>
+        runOpenAILangTurn(getOpenAIClient(), messages, opts),
     };
   }
 

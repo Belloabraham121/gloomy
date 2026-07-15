@@ -1,6 +1,10 @@
 import type { z } from "zod/v4";
 import { diagramSchema } from "./diagram.js";
 import { formulaStepperSchema } from "./formula-stepper.js";
+import {
+  imageUploadDescription,
+  imageUploadSchema,
+} from "./image-upload.js";
 import { mathDescription, mathSchema } from "./math.js";
 import { quizSchema } from "./quiz.js";
 import { simulationSchema } from "./simulation.js";
@@ -63,6 +67,11 @@ export const customComponentSpecs: CustomComponentSpec[] = [
     name: "Math",
     schema: mathSchema,
     description: `${mathDescription} Not part of Card/Tabs/Accordion's fixed child-type union - always nest inside a Stack.`,
+  },
+  {
+    name: "ImageUpload",
+    schema: imageUploadSchema,
+    description: `${imageUploadDescription} Not part of Card/Tabs/Accordion's fixed child-type union - always nest inside a Stack.`,
   },
 ];
 

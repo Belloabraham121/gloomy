@@ -1,9 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { chunkText } from "./chunk.js";
+import { chunkText, MAX_EMBED_CHARS } from "./chunk.js";
 
 describe("chunkText", () => {
   it("returns [] for empty input", () => {
     expect(chunkText("")).toEqual([]);
+  });
+
+  it("force-splits a giant PDF blob so no chunk exceeds the embed cap", () => {
+    // Mimics PDF extractors that emit one enormous run with no blank lines
+    // and no sentence punctuation — previously this became a single chunk
+    // and OpenAI embeddings rejected it (max 8192 tokens).
+    const blob = "abcdefghijklmnopqrstuvwxyz ".repeat(800); // ~22k chars
+    expect(blob.length).toBeGreaterThan(MAX_EMBED_CHARS);
+    const chunks = chunkText(blob, { chunkSize: 1000, overlap: 100 });
+    expect(chunks.length).toBeGreaterThan(1);
+    for (const c of chunks) {
+      expect(c.length).toBeLessThanOrEqual(MAX_EMBED_CHARS);
+    }
+    expect(chunks.join("")).toContain("abcdefghijklmnopqrstuvwxyz");
   });
 
   it("keeps short text as a single chunk", () => {

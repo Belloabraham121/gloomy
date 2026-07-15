@@ -11,6 +11,8 @@ export interface StoredEntry {
   question: string;
   status: "loading" | "success" | "error";
   response?: ChatResponse;
+  /** Progressive openui-lang while status === "loading" (SSE). */
+  streamingLang?: string;
   errorStatus?: number;
   errorMessage?: string;
 }
